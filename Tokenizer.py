@@ -1,6 +1,6 @@
 import torch
+from torch import Tensor
 from torch.utils.data import Dataset
-
 
 class Encoder:
     def __init__(self, vocabulary, N_tokens: int):
@@ -10,16 +10,17 @@ class Encoder:
         self.decoder = {i+1: ch for i, ch in enumerate(sorted_vocabulary)}
         self.N_tokens = N_tokens
 
-    def encode(self, text: str):
+    def encode(self, text: str) -> Tensor:
+        """Map string of characters to vector of indexes."""
         idx = torch.zeros(size=(1, self.N_tokens))
         for i, char in enumerate(text):
             idx[0, i] = self.encoder[char]
         return idx
 
     def decode(self, idx: list) -> str:
+        """Decode list of character token indexes as string."""
         chars = [self.decoder[i] for i in idx if i != 0]
         return ''.join(chars)
-
 
 class CharDataset(Dataset):
     """Emits batches of characters."""
@@ -37,17 +38,17 @@ class CharDataset(Dataset):
     def __len__(self):
         return len(self.raw_data) - self.N_tokens
 
-    def __getitem__(self, idx):
-        """Grabs a chunk of (block_size + 1) characters from the data,
-        encodes every character to an integer and returns the chunk 
-        and the shifted version as tensors.
+    def __getitem__(self, idx) -> tuple[Tensor, Tensor]:
+        """Grabs sliding window chunk n°i of N_token characters from 
+        the data, encodes every character to an integer and returns 
+        the chunk  and the shifted version as tensors.
         """
         text_chunk = self.raw_data[idx:idx+self.N_tokens]
         shifted_text_chunk = self.raw_data[idx+1:idx+1+self.N_tokens]
 
         chunk_idx = self.encode(text_chunk)
         shifted_idx = self.encode(shifted_text_chunk)
-        return chunk_idx, shifted_idx
+        return chunk_idx, shifted_idx   # 1 x N_token, 1 x N_token tuple.
 
     def decode(self, idx):
         return self.encoder.decode(idx.tolist())
