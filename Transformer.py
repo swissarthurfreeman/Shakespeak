@@ -20,7 +20,7 @@ class Transformer(nn.Module):
 
     def foward(self, X):
         """X is a (B x N x d) matrix of token and position embeddings
-        where X_i = embedding[w_i] + embedding_position[i], B is 
+        where X_bi = embedding[w_i] + embedding_position[i], B is 
         the batch size and N the number of characters per sentence. 
         w_i is character n°i."""
         for block in self.blocks:
