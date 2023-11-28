@@ -7,14 +7,14 @@ class FFN(nn.Module):
         """Initializes a transformer block FFN module"""
         self.d = d
         self.d_ff = d_ff
-        self.W1 = nn.Linear(in_features=d, out_features=d_ff)
-        self.W2 = nn.Linear(in_features=d_ff, out_features=d)
+        self.L1 = nn.Linear(in_features=d, out_features=d_ff)
+        self.L2 = nn.Linear(in_features=d_ff, out_features=d)
 
     def foward(self, X):
         """Applies fully connected two layer network to tensor X 
         of size (B x N x d) where B is the batch size, N the number
         of tokens of the sentence and d the embedding dimension."""
-        X = torch.matmul(X, self.W1)
+        X = self.L1(X)
         X = F.relu(X)
-        X = torch.matmul(X, self.W2)
+        X = self.L2(X)
         return X
