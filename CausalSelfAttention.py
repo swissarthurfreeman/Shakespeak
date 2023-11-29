@@ -1,6 +1,8 @@
 import torch.nn.functional as F
 import torch.nn as nn
+from torch import Tensor
 import torch
+
 
 class CausalSelfAttention(nn.Module):
     def __init__(self, B, N, d, h, d_k, d_v):
@@ -11,36 +13,44 @@ class CausalSelfAttention(nn.Module):
         self.d_k = d_k
         self.d_v = d_v
         
-        self.W_Q = torch.zeros(size=(h, d, d_k))
-        nn.init.xavier_uniform(self.W_Q)
-        self.W_Q = nn.Parameter(self.W_Q)
-
-        self.W_K = torch.zeros(size=(h, d, d_k))
-        nn.init.xavier_uniform(W_K)
-        self.W_K = nn.Parameter(W_K)
-
-        W_V = torch.zeros(size=(h, d, d_v))
-        nn.init.xavier_uniform(W_V)
-        W_K = nn.Parameter(W_V)
-
-        W_O = torch.zeros(size=(h*d_v, d))
-        nn.init.xavier_uniform(W_O)
-        W_K = nn.Parameter(W_O)
-
-        #self.to_q = nn.Linear(d, d_k * h)
+        self.to_Q = nn.Linear(d, d_k * h)
+        self.to_K = nn.Linear(d, d_k * h)
+        self.to_V = nn.Linear(d, d_v * h)
+        self.W_O = nn.Linear(h*d_v, d)
 
     def forward(self, X):
-        Q = torch.einsum('bik,hkj->bhij', X, self.W_Q)
-        K = torch.einsum('bik,hkj->bhij', X, self.W_K)
-        V = torch.einsum('bik,hkj->bhij', X, self.W_V)
-
-        q = self.to_q(X)
-        #q = q.reshape((b,N,h,d_k))
-
-        QKT = torch.einsum('bhik,bhkj->bhij', Q, torch.transpose(K, 2, 3))
-        A = F.softmax(QKT, dim=2)
+        """Applies multi-head self attention mechanism to B x N x d tensor."""
+        Q: Tensor = self.to_Q(X)    
         
-        AV = torch.einsum('bhik,bhkj->bhij', A, V)
-        AV_concat = torch.reshape(AV, shape=(self.B, self.N, self.h*self.d_v))
-        SA_out = torch.einsum('bni,id->bnd', AV_concat, self.W_O)
+        Q = Tensor.contiguous(torch.transpose( #  0       1       2       3
+            Q.reshape(shape=(self.B, self.N, self.h, self.d_k)),
+            dim0=1,
+            dim1=2
+        ))   # Q is (B x h x N x d_k)
+        
+        K: Tensor = self.to_K(X)
+        K = Tensor.contiguous(torch.transpose(
+            K.reshape(shape=(self.B, self.N, self.h, self.d_k)),
+            dim0=1,
+            dim1=2 # 0   1   2   3
+        ))   # K is (B x h x N x d_k)
+
+        V: Tensor = self.to_V(X)
+        V = Tensor.contiguous(torch.transpose(
+            V.reshape(shape=(self.B, self.N, self.h, self.d_v)),
+            dim0=1,
+            dim1=2
+        )) # V is (B x h x N x d_v)
+
+
+        # (B x h x N x N)
+        QKT = torch.einsum('bhik,bhkj->bhij', Q, torch.transpose(K, 2, 3))
+        A = F.softmax(QKT, dim=3)   # A is (B x h x N x N), careful, softmax over last dimension
+
+        AV = torch.einsum('bhik,bhkj->bhij', A, V)  # V is (B x h x N x d_v), AV is (B x h x N x d_v)
+        AV = torch.transpose(AV, dim0=1, dim1=2)    # AV is (B x N x h x d_v)
+        
+        AV_concat = torch.reshape(AV, shape=(self.B, self.N, self.h*self.d_v))  # AV_concat is (B x N x h*d_v)
+        SA_out = torch.einsum('bni,id->bnd', AV_concat, self.W_O)   # W_O is (h*d_v, d), SA_out is (B x N x d)
         return SA_out
+    
