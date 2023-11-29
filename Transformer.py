@@ -4,19 +4,19 @@ from Block import Block
 from LayerNorm import LayerNorm
 from LanguageHead import LanguageHead
 from Tokenizer import CharDataset
+from Dropout import Droupout
+from Block import Block
+import torch.nn as nn
+
 
 class Transformer(nn.Module):
-    def __init__(self, d, L, h, N, data):
-        self.N = N
-        self.d = d
-        self.L = L
-        self.h = h
-        self.data: CharDataset = data
-        self.E = nn.Linear(self.data.get_vocab_size(), self.d)   # initial embeddings matrix
-        self.blocks = nn.ModuleList()
-        
-        for _ in range(self.L):         # L blocks stacked on top of each other 
-            self.blocks.append(Block(self.N, self.d, self.h))
+    def __init__(self, L, B, N, h, d, d_k, d_v, d_ff):
+        self.Dropout = Droupout()
+        self.Final_LayerNorm = LayerNorm()
+
+        # L blocks stacked on top of each other
+        for _ in range(L): 
+            self.blocks.append(Block(B, N, h, d, d_k, d_v, d_ff))
         
         self.Final_LayerNorm = LayerNorm()     
         self.LM_Head = LanguageHead(self.E)
