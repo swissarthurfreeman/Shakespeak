@@ -3,6 +3,7 @@ import torch.nn as nn
 from torch import Tensor
 import torch
 
+
 class CausalSelfAttention(nn.Module):
     def __init__(self, B, N, d, h, d_k, d_v):
         self.B = B

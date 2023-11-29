@@ -24,7 +24,6 @@ class Encoder:
 
 class CharDataset(Dataset):
     """Emits batches of characters."""
-
     def __init__(self, N_tokens, data):
         self.N_tokens = N_tokens
         self.raw_data: str = data
@@ -50,8 +49,10 @@ class CharDataset(Dataset):
         shifted_idx = self.encode(shifted_text_chunk)
         return chunk_idx, shifted_idx   # 1 x N_token, 1 x N_token tuple.
 
-    def decode(self, idx):
+    def decode(self, idx) -> str:
+        """Decode list of character token indexes as string."""
         return self.encoder.decode(idx.tolist())
 
-    def encode(self, text):
+    def encode(self, text) -> Tensor:
+        """Map string of characters to vector of indexes."""
         return self.encoder.encode(text)

@@ -1,11 +1,12 @@
-from torch.nn import functional as F
-import torch.nn as nn
 import torch
+import torch.nn as nn
+from torch.nn import functional as F
+
 
 class LanguageHead(nn.Module):
-    def __init__(self, E):
+    def __init__(self, V, d):
         """Initialize a language head module."""
-        self.E: nn.Linear = E
+        self.E: nn.Linear = nn.Linear(d, V, bias=False)
 
     def foward(self, X):
         """Compute tensor of logits from X a B x N x d tensor, return a B x N x V tensor where 
@@ -13,4 +14,5 @@ class LanguageHead(nn.Module):
         logits = torch.matmul(X, torch.transpose(self.E.weight(), dim0=0, dim1=1))   # B x N x V
         logits = F.softmax(logits, dim=2)
         return logits
+
 
