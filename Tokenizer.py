@@ -2,6 +2,7 @@ import torch
 from torch import Tensor
 from torch.utils.data import Dataset
 
+
 class Encoder:
     def __init__(self, vocabulary, N_tokens: int):
         sorted_vocabulary = sorted(vocabulary)
@@ -22,8 +23,10 @@ class Encoder:
         chars = [self.decoder[i] for i in idx if i != 0]
         return ''.join(chars)
 
+
 class CharDataset(Dataset):
     """Emits batches of characters."""
+
     def __init__(self, N_tokens, data):
         self.N_tokens = N_tokens
         self.raw_data: str = data
@@ -45,8 +48,8 @@ class CharDataset(Dataset):
         text_chunk = self.raw_data[idx:idx+self.N_tokens]
         shifted_text_chunk = self.raw_data[idx+1:idx+1+self.N_tokens]
 
-        chunk_idx = self.encode(text_chunk)
-        shifted_idx = self.encode(shifted_text_chunk)
+        chunk_idx = self.encode(text_chunk).squeeze()
+        shifted_idx = self.encode(shifted_text_chunk).squeeze()
         return chunk_idx, shifted_idx   # 1 x N_token, 1 x N_token tuple.
 
     def decode(self, idx) -> str:
