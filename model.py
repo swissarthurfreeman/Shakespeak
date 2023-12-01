@@ -1,27 +1,27 @@
 
 import torch
+from torch import nn
+
+from PositionalEncoding import WPE
+from Transformer import Transformer
 
 
-class ShakespearModel(torch.nn.Module):
-    def __init__(self, n_layers, n_heads, n_embeddings):
+class ShakespearModel(nn.Module):
+    def __init__(self, n_layers, n_heads, n_embeddings, d, vocabulary_size):
         super(ShakespearModel, self).__init__()
         self.blocks = []
+        self.transformer: Transformer = None
+        self.d = d
+        self.WPE = WPE(self.d)
+        self.WTE = nn.Embedding(vocabulary_size, d)
 
     def forward(self, idx, target=None):
-        print(idx)
-        b, t = idx.size()
-        pos = torch.arange(0, t, device=idx.device).unsqueeze(
-            0)  # shape (1, t)
-
-        tok_emb = WTE(idx)  # token embeddings
-        pos_emb = WPE(pos)  # position embeddings
-        x = torch.nn.Dropout(tok_emb + pos_emb)
-        for Block in self.Blocks:
-            x = Block(x)
-        x = Final_LayerNorm(x)
-        logits = LM_Head(x)
-
-        return logits
+        batch_size, N_tokens = idx.size()
+        positions = torch.arange(0, N_tokens).expand(
+            batch_size, N_tokens).to(idx.device)
+        position_embedding = self.WPE(positions)
+        token_embedding = self.WTE(idx.long())
+        return self.transformer(token_embedding + position_embedding)
 
     def generate(self, idx, n_new_tokens: int):
 
