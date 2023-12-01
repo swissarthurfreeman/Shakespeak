@@ -38,6 +38,6 @@ if __name__ == '__main__':
 
     # default value given by teacher assist. We should play with it when it's working
     model = ShakespearModel(N_LAYERS, N_HEADS, N_EMBEDDINGS,
-                            D_MODEL, D_FF, D_K, D_V, tokenized_data.get_vocab_size())
+                            D_MODEL, D_FF, D_K, D_V, tokenized_data.get_vocab_size(), N_TOKENS)
 
     model(tokenized_sentence)
