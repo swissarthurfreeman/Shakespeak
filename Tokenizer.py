@@ -6,9 +6,8 @@ from torch.utils.data import Dataset
 class Encoder:
     def __init__(self, vocabulary, N_tokens: int):
         sorted_vocabulary = sorted(vocabulary)
-        # TODO - remove offset of +1 if we want to remove the line break
-        self.encoder = {ch: i+1 for i, ch in enumerate(sorted_vocabulary)}
-        self.decoder = {i+1: ch for i, ch in enumerate(sorted_vocabulary)}
+        self.encoder = {ch: i for i, ch in enumerate(sorted_vocabulary)}
+        self.decoder = {i: ch for i, ch in enumerate(sorted_vocabulary)}
         self.N_tokens = N_tokens
 
     def encode(self, text: str) -> Tensor:
