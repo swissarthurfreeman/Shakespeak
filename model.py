@@ -7,7 +7,28 @@ from Transformer import Transformer
 
 
 class ShakespearModel(nn.Module):
-    def __init__(self, n_layers, n_heads, d, d_ff, d_k, d_v, batch_size, N_tokens, vocabulary_size):
+    """
+    ShakespearModel class defines a Transformer's decoder-only language model for generating text.
+
+    Args:
+    - n_layers (int): Number of layers in the Transformer.
+    - n_heads (int): Number of attention heads in the Transformer.
+    - d (int): Dimension of model embeddings.
+    - d_ff (int): Dimension of the feedforward layer in the Transformer.
+    - d_k (int): Dimension of the key vectors in attention heads.
+    - d_v (int): Dimension of the value vectors in attention heads.
+    - batch_size (int): Size of the input batches.
+    - N_tokens (int): Number of tokens in the input sequence.
+    - vocabulary_size (int): Size of the vocabulary.
+
+    Attributes:
+    - d (int): Dimension of model embeddings.
+    - WPE (WPE): Positional encoding layer.
+    - WTE (nn.Embedding): Token embedding layer.
+    - transformer (Transformer): Transformer model.
+    """
+
+    def __init__(self, n_layers: int, n_heads: int, d: int, d_ff: int, d_k: int, d_v: int, batch_size: int, N_tokens: int, vocabulary_size: int) -> None:
         super(ShakespearModel, self).__init__()
         self.d = d
         self.WPE = WPE(self.d)
@@ -23,7 +44,17 @@ class ShakespearModel(nn.Module):
                                                     V=vocabulary_size,
                                                     E=self.WTE)
 
-    def forward(self, idx, target=None):
+    def forward(self, idx: torch.Tensor, target: torch.Tensor = None) -> torch.Tensor:
+        """
+        Forward pass of the model.
+
+        Args:
+        - idx (torch.Tensor): Input sequence indices.
+        - target (torch.Tensor): Target sequence indices for training.
+
+        Returns:
+        - torch.Tensor: Model output.
+        """
         batch_size, N_tokens = idx.size()
         positions = torch.arange(0, N_tokens).expand(
             batch_size, N_tokens).to(idx.device)
@@ -31,8 +62,17 @@ class ShakespearModel(nn.Module):
         token_embedding = self.WTE(idx.long())
         return self.transformer(token_embedding + position_embedding)
 
-    def generate(self, idx, n_new_tokens: int):
+    def generate(self, idx: torch.Tensor, n_new_tokens: int) -> torch.Tensor:
+        """
+        Generate new text based on the input sequence.
 
+        Args:
+        - idx (torch.Tensor): Input sequence indices.
+        - n_new_tokens (int): Number of new tokens to generate.
+
+        Returns:
+        - torch.Tensor: Generated sequence indices.
+        """
         # loop up to the number of desired new tokens.
         for _ in range(n_new_tokens):
             # Get logits
