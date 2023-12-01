@@ -4,10 +4,10 @@ from torch.nn import functional as F
 
 
 class LanguageHead(nn.Module):
-    def __init__(self, V, d):
+    def __init__(self, E):
         """Initialize a language head module."""
         super(LanguageHead, self).__init__()
-        self.E: nn.Linear = nn.Linear(d, V, bias=False)
+        self.E = E
 
     def forward(self, X):
         """Compute tensor of logits from X a B x N x d tensor, return a B x N x V tensor where 

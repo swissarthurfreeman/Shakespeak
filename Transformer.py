@@ -7,7 +7,7 @@ from Tokenizer import CharDataset
 
 
 class Transformer(nn.Module):
-    def __init__(self, L, B, N, h, d, d_k, d_v, d_ff, V):
+    def __init__(self, L, B, N, h, d, d_k, d_v, d_ff, V, E):
         super(Transformer, self).__init__()
 
         self.Dropout = nn.Dropout(p=0.1)
@@ -16,7 +16,7 @@ class Transformer(nn.Module):
         self.blocks = [Block(B, N, h, d, d_k, d_v, d_ff) for _ in range(L)]
 
         self.Final_LayerNorm = LayerNorm()
-        self.LM_Head = LanguageHead(V, d)
+        self.LM_Head = LanguageHead(E)
 
     def forward(self, X):
         """X is a (B x N x d) matrix of token and position embeddings

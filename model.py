@@ -9,7 +9,9 @@ from Transformer import Transformer
 class ShakespearModel(nn.Module):
     def __init__(self, n_layers, n_heads, d, d_ff, d_k, d_v, batch_size, N_tokens, vocabulary_size):
         super(ShakespearModel, self).__init__()
-        self.blocks = []
+        self.d = d
+        self.WPE = WPE(self.d)
+        self.WTE = nn.Embedding(vocabulary_size, d)
         self.transformer: Transformer = Transformer(L=n_layers,
                                                     B=batch_size,
                                                     N=N_tokens,
@@ -18,10 +20,8 @@ class ShakespearModel(nn.Module):
                                                     d_k=d_k,
                                                     d_v=d_v,
                                                     d_ff=d_ff,
-                                                    V=vocabulary_size)
-        self.d = d
-        self.WPE = WPE(self.d)
-        self.WTE = nn.Embedding(vocabulary_size, d)
+                                                    V=vocabulary_size,
+                                                    E=self.WTE)
 
     def forward(self, idx, target=None):
         batch_size, N_tokens = idx.size()
