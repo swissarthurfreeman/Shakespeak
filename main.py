@@ -18,6 +18,8 @@ if __name__ == '__main__':
     N_WORKERS = 2
     BATCH_SIZE = N_TOKENS  # B
     D_MODEL = 512
+    D_K = 64
+    D_V = D_K
     D_FF = 2048
     RAW_DATA_PATH = './datasets/shakespear_corpus.txt'
 
@@ -36,6 +38,6 @@ if __name__ == '__main__':
 
     # default value given by teacher assist. We should play with it when it's working
     model = ShakespearModel(N_LAYERS, N_HEADS, N_EMBEDDINGS,
-                            D_MODEL, tokenized_data.get_vocab_size())
+                            D_MODEL, D_FF, D_K, D_V, tokenized_data.get_vocab_size())
 
     model(tokenized_sentence)
