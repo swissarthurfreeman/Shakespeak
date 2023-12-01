@@ -56,5 +56,6 @@ class CausalSelfAttention(nn.Module):
         # AV_concat is (B x N x h*d_v)
         AV_concat = torch.reshape(AV, shape=(self.B, self.N, self.h*self.d_v))
         # W_O is (h*d_v, d), SA_out is (B x N x d)
-        SA_out = torch.einsum('bni,id->bnd', AV_concat, self.W_O)
+        SA_out = torch.einsum('bni,id->bnd', AV_concat,
+                              torch.transpose(self.W_O.weight, dim0=0, dim1=1))
         return SA_out
