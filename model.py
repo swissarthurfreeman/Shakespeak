@@ -44,13 +44,12 @@ class ShakespearModel(nn.Module):
                                                     V=vocabulary_size,
                                                     E=self.WTE)
 
-    def forward(self, idx: torch.Tensor, target: torch.Tensor = None) -> torch.Tensor:
+    def forward(self, idx: torch.Tensor) -> torch.Tensor:
         """
         Forward pass of the model.
 
         Args:
         - idx (torch.Tensor): Input sequence indices.
-        - target (torch.Tensor): Target sequence indices for training.
 
         Returns:
         - torch.Tensor: Model output.
