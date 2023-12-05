@@ -28,6 +28,7 @@ if __name__ == '__main__':
 
     raw_data = load_data(RAW_DATA_PATH)
     tokenized_data = CharDataSet(N_TOKENS, raw_data)
+    
     data_loader = DataLoader(
         tokenized_data,
         shuffle=False,
@@ -35,20 +36,31 @@ if __name__ == '__main__':
         num_workers=N_WORKERS,
     )
 
-    model = ShakespearModel(N_LAYERS, N_HEADS,
-                            D_MODEL, D_FF, D_K, D_V, BATCH_SIZE, N_TOKENS, tokenized_data.get_vocab_size())
+
+    model = ShakespearModel(
+        N_LAYERS, N_HEADS, D_MODEL, 
+        D_FF, D_K, D_V, BATCH_SIZE, 
+        N_TOKENS, tokenized_data.get_vocab_size()
+    )
 
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     for epoch in range(N_EPOCHS):
         total_loss = 0.0
+        # batch_idx is index of the batch, inputs/targets are B x N 
+        # tensors where inputs[b] is the sequence of word indexes of 
+        # sequence n°b in the batch, targets[b] is the sequence of 
+        # 1 to the right shifted words indexes of the sequence.  
         for batch_idx, (inputs, targets) in enumerate(data_loader):
 
             optimizer.zero_grad()
 
-            logits = model(inputs)
-            loss = criterion(logits.view(-1, logits.size(-1)), targets.long().view(-1))
+            logits = model(inputs)                  # logits is B x N x V vector
+            loss = criterion(
+                logits.view(-1, logits.size(-1)),   # B*N x V vector
+                targets.long().view(-1)             # flattens targets to B*N vector
+            )
             
             loss.backward()
 

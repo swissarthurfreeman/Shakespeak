@@ -33,32 +33,27 @@ class ShakespearModel(nn.Module):
         self.d = d
         self.WPE = WPE(self.d)
         self.WTE = nn.Embedding(vocabulary_size, d)
-        self.transformer: Transformer = Transformer(L=n_layers,
-                                                    B=batch_size,
-                                                    N=N_tokens,
-                                                    h=n_heads,
-                                                    d=d,
-                                                    d_k=d_k,
-                                                    d_v=d_v,
-                                                    d_ff=d_ff,
-                                                    V=vocabulary_size,
-                                                    E=self.WTE)
+        self.transformer: Transformer = Transformer(L=n_layers, B=batch_size, N=N_tokens,
+                                                    h=n_heads, d=d, d_k=d_k, d_v=d_v, d_ff=d_ff,
+                                                    V=vocabulary_size, E=self.WTE)
 
     def forward(self, idx: torch.Tensor) -> torch.Tensor:
         """
         Forward pass of the model.
 
         Args:
-        - idx (torch.Tensor): Input sequence indices.
+        - idx Tensor, B x N: Input sequence indices.
 
         Returns:
-        - torch.Tensor: Model output.
+        - out : torch.Tensor, Model output, a tensor of logits of size B x N x V
+          where out[b][i] is the probability distribution over sorted vocabulary
+          of character i+1 in sequence n°b of the batch.
         """
         batch_size, N_tokens = idx.size()
-        positions = torch.arange(0, N_tokens).expand(
-            batch_size, N_tokens).to(idx.device)
+        positions = torch.arange(0, N_tokens).expand(batch_size, N_tokens).to(idx.device)
         position_embedding = self.WPE(positions)
         token_embedding = self.WTE(idx.long())
+
         return self.transformer(token_embedding + position_embedding)
 
     def generate(self, idx: torch.Tensor, n_new_tokens: int) -> torch.Tensor:
