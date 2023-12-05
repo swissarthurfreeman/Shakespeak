@@ -12,7 +12,7 @@ class CharDataSet(Dataset):
     and the i+1-th window on the data.   
     """
     def __init__(self, N_tokens, data):
-        self.N_tokens = N_tokens
+        self.N_tokens = N_tokens        # CAREFUL ! Top bound is not included ! 
         self.raw_data: str = data
         self.vocabulary: list[str] = sorted(list(set(data)))
         self.vocabulary_size: int = len(self.vocabulary)
@@ -47,5 +47,5 @@ class CharDataSet(Dataset):
 
     def decode(self, idx: Tensor) -> str:
         """Decode list of character token indexes as string."""
-        chars = [self.decoder[i] for i in idx.tolist() if i != 0]
-        return ''.join(chars)
+        chars = [self.decoder[i] for i in idx.tolist()]         # why was there an if i != 0 in the list ?  
+        return ''.join(chars)                                   # this made decoding of spaces impossible 
