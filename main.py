@@ -1,7 +1,6 @@
-from torch.utils.data.dataloader import DataLoader
-
 from model import ShakespearModel
-from parsing import CharDataSet
+from parsing.CharDataSet import CharDataSet
+from torch.utils.data.dataloader import DataLoader
 
 
 def load_data(filename) -> str:

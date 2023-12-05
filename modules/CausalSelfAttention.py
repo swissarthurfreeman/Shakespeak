@@ -1,7 +1,8 @@
 import torch
+from math import sqrt
 import torch.nn as nn
-import torch.nn.functional as F
 from torch import Tensor
+import torch.nn.functional as F
 
 
 class CausalSelfAttention(nn.Module):
@@ -15,9 +16,9 @@ class CausalSelfAttention(nn.Module):
         self.d_k = d_k
         self.d_v = d_v
 
-        self.to_Q = nn.Linear(d, d_k * h)
-        self.to_K = nn.Linear(d, d_k * h)
-        self.to_V = nn.Linear(d, d_v * h)
+        self.to_Q = nn.Linear(d, d_k * h)   # since they're h heads, standard practice is to
+        self.to_K = nn.Linear(d, d_k * h)   # concatenate all heads Q, K, V weights and reshape
+        self.to_V = nn.Linear(d, d_v * h)   # them to h x N x d_vk later. 
         self.W_O = nn.Linear(h*d_v, d)
 
     def forward(self, X):
@@ -47,7 +48,7 @@ class CausalSelfAttention(nn.Module):
         # (B x h x N x N)
         QKT = torch.einsum('bhik,bhkj->bhij', Q, torch.transpose(K, 2, 3))
         # A is (B x h x N x N), careful, softmax over last dimension
-        A = F.softmax(QKT, dim=3)
+        A = F.softmax(torch.div(QKT, sqrt(self.d_k)) , dim=3)
 
         # V is (B x h x N x d_v), AV is (B x h x N x d_v)
         AV = torch.einsum('bhik,bhkj->bhij', A, V)

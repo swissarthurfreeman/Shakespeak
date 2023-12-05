@@ -1,5 +1,4 @@
 import torch.nn as nn
-
 from modules.CausalSelfAttention import CausalSelfAttention
 from modules.FFN import FFN
 from modules.LayerNorm import LayerNorm
