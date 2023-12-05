@@ -1,8 +1,8 @@
 import torch.nn as nn
 
-from CausalSelfAttention import CausalSelfAttention
-from FFN import FFN
-from LayerNorm import LayerNorm
+from modules.CausalSelfAttention import CausalSelfAttention
+from modules.FFN import FFN
+from modules.LayerNorm import LayerNorm
 
 
 class Block(nn.Module):
