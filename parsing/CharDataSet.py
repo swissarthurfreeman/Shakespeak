@@ -7,7 +7,7 @@ class CharDataSet(Dataset):
     """
     Helper class to emits batches of characters.
     Implements an a __getitem__() method, which 
-    allows subscripting by i, where CharDataset[i]
+    allows subscripting by i, where CharDataSet[i]
     yields a tuple with the i-th sliding window 
     and the i+1-th window on the data.   
     """

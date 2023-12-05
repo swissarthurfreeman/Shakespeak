@@ -1,6 +1,6 @@
 import unittest
 from torch import Tensor
-from parsing.Tokenizer import CharDataSet
+from parsing.CharDataSet import CharDataSet
 
 
 class TestCharDataSet(unittest.TestCase):

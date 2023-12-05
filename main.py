@@ -1,7 +1,7 @@
 from torch.utils.data.dataloader import DataLoader
 
 from model import ShakespearModel
-from parsing import CharDataset
+from parsing import CharDataSet
 
 
 def load_data(filename) -> str:
@@ -24,7 +24,7 @@ if __name__ == '__main__':
 
     raw_data = load_data(RAW_DATA_PATH)
 
-    tokenized_data = CharDataset(N_TOKENS, raw_data)
+    tokenized_data = CharDataSet(N_TOKENS, raw_data)
     data_loader = DataLoader(
         tokenized_data,
         shuffle=False,
