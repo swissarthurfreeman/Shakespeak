@@ -27,10 +27,10 @@ class ShakespearModel(nn.Module):
     - WTE (nn.Embedding): Token embedding layer.
     - transformer (Transformer): Transformer model.
     """
-
     def __init__(self, n_layers: int, n_heads: int, d: int, d_ff: int, d_k: int, d_v: int, batch_size: int, N_tokens: int, vocabulary_size: int) -> None:
         super(ShakespearModel, self).__init__()
         self.d = d
+        self.N_tokens = N_tokens
         self.WPE = WPE(self.d)
         self.WTE = nn.Embedding(vocabulary_size, d)
         self.transformer: Transformer = Transformer(L=n_layers, B=batch_size, N=N_tokens,
@@ -49,7 +49,7 @@ class ShakespearModel(nn.Module):
           where out[b][i] is the probability distribution over sorted vocabulary
           of character i+1 in sequence n°b of the batch.
         """
-        batch_size, N_tokens = idx.size()
+        batch_size, N_tokens = idx.size()   
         positions = torch.arange(0, N_tokens).expand(batch_size, N_tokens).to(idx.device)
         position_embedding = self.WPE(positions)
         token_embedding = self.WTE(idx.long())
@@ -61,16 +61,24 @@ class ShakespearModel(nn.Module):
         Generate new text based on the input sequence.
 
         Args:
-        - idx (torch.Tensor): Input sequence indices.
+        - idx (torch.Tensor): Input sequence indices, this does not have to be N_tokens in size.
         - n_new_tokens (int): Number of new tokens to generate.
 
         Returns:
         - torch.Tensor: Generated sequence indices.
         """
+        # pad appropriately
+        if idx.size(0) % self.N_tokens != 0:
+            # if size = N_tokens * k + p, size % N = p
+            pad = torch.zeros(size=( self.N_tokens - (idx.size(0) % self.N_tokens) ))
+            input = torch.concat([idx, pad])   # input is Tensor of size (N_tokens * k), k in Nat
+
+        input = torch.reshape(input, shape=(input.size(0) % self.N_tokens, self.N_tokens))  # input is tensor of size k x N_tokens
+       
         # loop up to the number of desired new tokens.
         for _ in range(n_new_tokens):
             # Get logits
-            logits = self(idx)
+            logits = self(input)
 
             # TODO - Get probabilities from logits
             probabilities = None
