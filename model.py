@@ -2,8 +2,8 @@
 import torch
 from torch import nn
 
-from PositionalEncoding import WPE
-from Transformer import Transformer
+from modules.PositionalEncoding import WPE
+from modules.Transformer import Transformer
 
 
 class ShakespearModel(nn.Module):

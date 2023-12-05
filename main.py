@@ -1,7 +1,7 @@
 from torch.utils.data.dataloader import DataLoader
 
 from model import ShakespearModel
-from Tokenizer import CharDataset
+from parsing import CharDataset
 
 
 def load_data(filename) -> str:
@@ -11,12 +11,12 @@ def load_data(filename) -> str:
 
 
 if __name__ == '__main__':
-    N_TOKENS = 128  # N
-    N_LAYERS = 12  # L
-    N_HEADS = 8  # h
+    N_TOKENS = 128              # N
+    N_LAYERS = 12               # L
+    N_HEADS = 8                 # h
     N_WORKERS = 2
-    BATCH_SIZE = N_TOKENS  # B
-    D_MODEL = 768  # d
+    BATCH_SIZE = N_TOKENS       # B
+    D_MODEL = 768               # d
     D_K = 64
     D_V = D_K
     D_FF = 2048
@@ -34,9 +34,9 @@ if __name__ == '__main__':
 
     # get first batch of sentences
     tokenized_sentence, _ = next(iter(data_loader))  # (128,128) = (B,N)
-
+    
     # default value given by teacher assist. We should play with it when it's working
     model = ShakespearModel(N_LAYERS, N_HEADS,
                             D_MODEL, D_FF, D_K, D_V, BATCH_SIZE, N_TOKENS, tokenized_data.get_vocab_size())
-
+    
     model(tokenized_sentence)

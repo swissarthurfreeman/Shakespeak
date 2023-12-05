@@ -4,7 +4,7 @@ from torch.nn import functional as F
 from torch.utils.data.dataloader import DataLoader
 
 from model import ShakespearModel
-from Tokenizer import CharDataset
+from parsing import CharDataset
 
 
 def load_data(filename):
@@ -46,14 +46,15 @@ if __name__ == '__main__':
         for batch_idx, (inputs, targets) in enumerate(data_loader):
 
             optimizer.zero_grad()
-            outputs = model(inputs)
 
             logits = model(inputs)
-            loss = criterion(logits.view(-1, logits.size(-1)),
-                             targets.long().view(-1))
+            loss = criterion(logits.view(-1, logits.size(-1)), targets.long().view(-1))
+            
             loss.backward()
+
             optimizer.step()
             total_loss += loss.item()
+            
             print(f"batch {batch_idx} - Loss: {loss}")
 
         average_loss = total_loss / len(data_loader)
