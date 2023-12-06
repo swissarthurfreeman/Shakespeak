@@ -12,18 +12,17 @@ def load_data(filename):
         data = file.read()
     return data
 
-
-if __name__ == '__main__':
-    N_EPOCHS = 2
-    N_TOKENS = 128  # N
-    N_LAYERS = 12  # L
-    N_HEADS = 8  # h
+def train_model(): 
+    N_EPOCHS = 1
+    N_TOKENS = 64  # N
+    N_LAYERS = 6  # L
+    N_HEADS = 4  # h
     N_WORKERS = 2
-    BATCH_SIZE = N_TOKENS  # B
-    D_MODEL = 768  # d
-    D_K = 64
+    BATCH_SIZE = 20  # B
+    D_MODEL = 300  # d
+    D_K = 30
     D_V = D_K
-    D_FF = 2048
+    D_FF = 1024
     RAW_DATA_PATH = './datasets/shakespear_corpus.txt'
 
     raw_data = load_data(RAW_DATA_PATH)
@@ -44,7 +43,7 @@ if __name__ == '__main__':
     )
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    optimizer = optim.Adam(model.parameters(), lr=0.01, weight_decay=0.999)
 
     for epoch in range(N_EPOCHS):
         total_loss = 0.0
@@ -53,6 +52,8 @@ if __name__ == '__main__':
         # sequence n°b in the batch, targets[b] is the sequence of 
         # 1 to the right shifted words indexes of the sequence.  
         for batch_idx, (inputs, targets) in enumerate(data_loader):
+            if batch_idx > 10000:
+                break
 
             optimizer.zero_grad()
 
@@ -71,3 +72,8 @@ if __name__ == '__main__':
 
         average_loss = total_loss / len(data_loader)
         print(f'Epoch [{epoch + 1}/{N_EPOCHS}], Loss: {average_loss:.4f}')
+
+    return model
+
+if __name__ == '__main__':
+    train_model()
