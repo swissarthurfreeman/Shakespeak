@@ -50,7 +50,10 @@ class ShakespearModel(nn.Module):
           of character i+1 in sequence n°b of the batch.
         """
         batch_size, N_tokens = idx.size()   
+
+        # positions is B x N, every line is a range[0, N_tokens]
         positions = torch.arange(0, N_tokens).expand(batch_size, N_tokens).to(idx.device)
+
         position_embedding = self.WPE(positions)
         token_embedding = self.WTE(idx.long())
 

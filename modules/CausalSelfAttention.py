@@ -47,8 +47,14 @@ class CausalSelfAttention(nn.Module):
 
         # (B x h x N x N)
         QKT = torch.einsum('bhik,bhkj->bhij', Q, torch.transpose(K, 2, 3))      # BUG : upper triangular matrix must be removed, see Jurafsky.
+        
+        lower_mask = torch.ones(size=(self.N , self.N)).tril()
+        upper_mask = torch.zeros(size=(self.B, self.h, self.N, self.N)).masked_fill_(lower_mask.logical_not(), float("-inf"))
+
+        masked_QKT = QKT * lower_mask + upper_mask
+        
         # A is (B x h x N x N), careful, softmax over last dimension
-        A = F.softmax(torch.div(QKT, sqrt(self.d_k)) , dim=3)
+        A = F.softmax(torch.div(masked_QKT, sqrt(self.d_k)) , dim=3)
 
         # V is (B x h x N x d_v), AV is (B x h x N x d_v)
         AV = torch.einsum('bhik,bhkj->bhij', A, V)
