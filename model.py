@@ -1,7 +1,6 @@
-
 import torch
 from torch import nn
-
+from torch import Tensor
 from modules.PositionalEncoding import WPE
 from modules.Transformer import Transformer
 
@@ -37,7 +36,7 @@ class ShakespearModel(nn.Module):
                                                     h=n_heads, d=d, d_k=d_k, d_v=d_v, d_ff=d_ff,
                                                     V=vocabulary_size, E=self.WTE)
 
-    def forward(self, idx: torch.Tensor) -> torch.Tensor:
+    def forward(self, idx: Tensor) -> Tensor:
         """
         Forward pass of the model.
 
@@ -45,7 +44,7 @@ class ShakespearModel(nn.Module):
         - idx Tensor, B x N: Input sequence indices.
 
         Returns:
-        - out : torch.Tensor, Model output, a tensor of logits of size B x N x V
+        - out : Tensor, a tensor of logits of size B x N x V
           where out[b][i] is the probability distribution over sorted vocabulary
           of character i+1 in sequence n°b of the batch.
         """
@@ -56,7 +55,7 @@ class ShakespearModel(nn.Module):
 
         return self.transformer(token_embedding + position_embedding)
 
-    def generate(self, idx: torch.Tensor, n_new_tokens: int) -> torch.Tensor:
+    def generate(self, idx: Tensor, n_new_tokens: int, sampling: str = "max") -> Tensor:
         """
         Generate new text based on the input sequence.
 
@@ -65,26 +64,31 @@ class ShakespearModel(nn.Module):
         - n_new_tokens (int): Number of new tokens to generate.
 
         Returns:
-        - torch.Tensor: Generated sequence indices.
+        - Tensor: Generated new sequence indices, a 1D vector of size (n_new_tokens,).
         """
-        # pad appropriately
-        if idx.size(0) % self.N_tokens != 0:
-            # if size = N_tokens * k + p, size % N = p
-            pad = torch.zeros(size=( self.N_tokens - (idx.size(0) % self.N_tokens) ))
-            input = torch.concat([idx, pad])   # input is Tensor of size (N_tokens * k), k in Nat
+        prompt_idx = input.size(0)                                          # pointer to start of new tokens buffer
+        input = torch.concat([idx, torch.zeros( size=(n_new_tokens) )])     # size is N_prompt + n_new_tokens, just pad. 
+        N_input = input.size(0)
+        
+        if N_input % self.N_tokens != 0:    # pad appropriately
+            # if size = N_tokens * k + p, size % N_tok = p, N - p => what's left to add to be a multiple of N_tok
+            pad = torch.zeros(size=( self.N_tokens - (N_input % self.N_tokens) ))
+            input = torch.concat([input, pad])                                                # input is Tensor of size (N_tokens * k), k in Nat
 
-        input = torch.reshape(input, shape=(input.size(0) % self.N_tokens, self.N_tokens))  # input is tensor of size k x N_tokens
-       
-        # loop up to the number of desired new tokens.
+        input = torch.reshape(input, shape=(input.size(0) % self.N_tokens, self.N_tokens))  # input is tensor of size k x N_tokens (k is batch)
+        
         for _ in range(n_new_tokens):
             # Get logits
-            logits = self(input)
+            logits = self(input)                                    # output is B x N x V
 
-            # TODO - Get probabilities from logits
-            probabilities = None
-            # Take element with highest probability
-            # TODO - Implement other way to choose the element
-            _, new_char_idx = torch.topk(probabilities, k=1, dim=-1)
-            # Update text with new element
-            idx = torch.cat((idx, new_char_idx), dim=1)
-        return idx
+            if sampling == "max":                                   # TODO : try other sampling strategies
+                new_char_idx = torch.argmax(logits, dim=-1)         # B x N
+
+            shape = input.size()
+            input = torch.flatten(input)                            # tensor of size k*N_input
+            input[prompt_idx] = new_char_idx[prompt_idx]
+            prompt_idx += 1
+
+            input = torch.reshape(input, shape=shape)
+
+        return input.flatten()[idx.size(0):idx.size(0)+n_new_tokens]
