@@ -18,8 +18,7 @@ class WPE(torch.nn.Module):
         sin = torch.sin(angles) * pair_mask  # Sinus of even elements, B x N x d
         cos = torch.cos(angles) * torch.logical_not(pair_mask)         # Cosinus of odd elements B x N x d
 
-
-        print(sin[0][5][:7])
-        print(cos[0][5][:7])
+        #print(sin[0][5][:7])
+        #print(cos[0][5][:7])
         embedding = sin + cos   # BUG this is no longer interleaved B x N x d.
         return embedding

@@ -12,7 +12,7 @@ class LayerNorm(nn.Module):
     def forward(self, X):
         """Applies Layer normalization to tensor X of size (B x N x d)"""
         mu = torch.mean(X, dim=2).unsqueeze(-1)
-        std = torch.mean(X, dim=2).unsqueeze(-1)
+        std = torch.std(X, dim=2).unsqueeze(-1)
 
         X_hat = (X - mu) / std
         return self.gamma * X_hat + self.beta
