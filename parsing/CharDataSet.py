@@ -40,7 +40,7 @@ class CharDataSet(Dataset):
 
     def encode(self, text: str) -> Tensor:
         """Map string of characters to vector of indexes."""
-        idx = torch.zeros(size=(1, self.N_tokens))
+        idx = torch.zeros(size=(1, len(text)))      # BUG : before we were using self.N_tokens, but this is not expected behavior.
         for i, char in enumerate(text):
             idx[0, i] = self.encoder[char]
         return idx

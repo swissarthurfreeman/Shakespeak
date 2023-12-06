@@ -30,6 +30,7 @@ class ShakespearModel(nn.Module):
         super(ShakespearModel, self).__init__()
         self.d = d
         self.N_tokens = N_tokens
+        self.B = batch_size
         self.WPE = WPE(self.d)
         self.WTE = nn.Embedding(vocabulary_size, d)
         self.transformer: Transformer = Transformer(L=n_layers, B=batch_size, N=N_tokens,
@@ -60,24 +61,33 @@ class ShakespearModel(nn.Module):
         Generate new text based on the input sequence.
 
         Args:
-        - idx (torch.Tensor): Input sequence indices, this does not have to be N_tokens in size.
+        - idx (torch.Tensor): Input sequence indices of arbitrary length.
         - n_new_tokens (int): Number of new tokens to generate.
 
         Returns:
         - Tensor: Generated new sequence indices, a 1D vector of size (n_new_tokens,).
         """
-        prompt_idx = input.size(0)                                          # pointer to start of new tokens buffer
-        input = torch.concat([idx, torch.zeros( size=(n_new_tokens) )])     # size is N_prompt + n_new_tokens, just pad. 
-        N_input = input.size(0)
-        
-        if N_input % self.N_tokens != 0:    # pad appropriately
-            # if size = N_tokens * k + p, size % N_tok = p, N - p => what's left to add to be a multiple of N_tok
-            pad = torch.zeros(size=( self.N_tokens - (N_input % self.N_tokens) ))
-            input = torch.concat([input, pad])                                                # input is Tensor of size (N_tokens * k), k in Nat
+        prompt_idx = idx.size(1)                                                       # pointer to start of new tokens buffer
+        input = torch.concat([idx, torch.zeros( size=(1, n_new_tokens) )], dim=-1)     # size is (1, N_prompt + n_new_tokens), just pad. 
 
-        input = torch.reshape(input, shape=(input.size(0) % self.N_tokens, self.N_tokens))  # input is tensor of size k x N_tokens (k is batch)
+        if prompt_idx > self.N_tokens:  # blablab(la .... blabla 0) 0 0 0 ... 0        window () of N_tokens must be sliced out to have 
+            input = input[prompt_idx-self.N_tokens:]                                   # maximum context characters to extrapolate from
+        
+        N_input = input.size(-1)
+
+        if N_input < (self.N_tokens*self.B) and N_input % (self.N_tokens*self.B) != 0:               # pad to length multiple of N_tokens*B
+            pad = torch.zeros(size=(1, self.N_tokens*self.B - (N_input % (self.N_tokens*self.B) )))
+            input = torch.concat([input, pad], dim=-1)                                               # input (l * N_tokens * B)
+        else:
+            print("Too many tokens to generate, max len(prompt) + n_new_tokens > %s" % (self.N_tokens*self.B) )
+            print("Please reduce the n_new_tokens or the prompt size.")
+            return
+
+        input = torch.reshape(input, shape=(self.B, self.N_tokens))  # input is tensor of size N_batches x B x N_tokens
+        print(input.size())
         
         for _ in range(n_new_tokens):
+            print(input.size())
             # Get logits
             logits = self(input)                                    # output is B x N x V
 
@@ -86,9 +96,12 @@ class ShakespearModel(nn.Module):
 
             shape = input.size()
             input = torch.flatten(input)                            # tensor of size k*N_input
-            input[prompt_idx] = new_char_idx[prompt_idx]
+            print(input.size(), prompt_idx)
+            input[prompt_idx] = new_char_idx.flatten()[prompt_idx]
             prompt_idx += 1
 
             input = torch.reshape(input, shape=shape)
 
         return input.flatten()[idx.size(0):idx.size(0)+n_new_tokens]
+
+
