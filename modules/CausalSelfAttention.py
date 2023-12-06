@@ -46,7 +46,7 @@ class CausalSelfAttention(nn.Module):
         ))  # V is (B x h x N x d_v)
 
         # (B x h x N x N)
-        QKT = torch.einsum('bhik,bhkj->bhij', Q, torch.transpose(K, 2, 3))
+        QKT = torch.einsum('bhik,bhkj->bhij', Q, torch.transpose(K, 2, 3))      # BUG : upper triangular matrix must be removed, see Jurafsky.
         # A is (B x h x N x N), careful, softmax over last dimension
         A = F.softmax(torch.div(QKT, sqrt(self.d_k)) , dim=3)
 
