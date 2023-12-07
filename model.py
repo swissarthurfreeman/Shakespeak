@@ -87,10 +87,8 @@ class ShakespearModel(nn.Module):
             return
 
         input = torch.reshape(input, shape=(self.B, self.N_tokens))  # input is tensor of size N_batches x B x N_tokens
-        print(input.size())
         
         for _ in range(n_new_tokens):
-            print(input.size())
             # Get logits
             logits = self(input)                                    # output is B x N x V
 
@@ -99,7 +97,7 @@ class ShakespearModel(nn.Module):
 
             shape = input.size()
             input = torch.flatten(input)                            # tensor of size k*N_input
-            print(input.size(), prompt_idx)
+            
             input[prompt_idx] = new_char_idx.flatten()[prompt_idx]
             prompt_idx += 1
 

@@ -10,6 +10,8 @@ class TestLayerNorm(unittest.TestCase):
         B, N, d = 5, 128, 300
         X = torch.rand(size=(B, N, d))*10 - 5
         
+        print(list(LY.named_parameters()))
+
         X_norm = LY(X)
         self.assertAlmostEqual(torch.mean(X_norm[0, 0, :]).item(), 0, 7)
         self.assertAlmostEqual(torch.std(X_norm[0, 0, :]).item(), 1, 7)

@@ -22,7 +22,11 @@ class CausalSelfAttention(nn.Module):
         self.W_O = nn.Linear(h*d_v, d)
 
     def forward(self, X):
-        """Applies multi-head self attention mechanism to B x N x d tensor."""
+        """Applies multi-head self attention mechanism to B x N x d tensor.
+        Outputs a tensor of logits """
+        print("X size =", X.size())
+        print("Q_size =", self.to_Q.weight.size())
+
         Q: Tensor = self.to_Q(X)
 
         Q = Tensor.contiguous(torch.transpose(  # 0       1       2       3

@@ -12,17 +12,8 @@ def load_data(filename):
         data = file.read()
     return data
 
-def train_model(): 
-    N_EPOCHS = 1
-    N_TOKENS = 64  # N
-    N_LAYERS = 6  # L
-    N_HEADS = 4  # h
+def train_model(N_EPOCHS, N_TOKENS, N_LAYERS, N_HEADS, BATCH_SIZE, D_MODEL, D_K, D_V, D_FF): 
     N_WORKERS = 2
-    BATCH_SIZE = 20  # B
-    D_MODEL = 300  # d
-    D_K = 30
-    D_V = D_K
-    D_FF = 1024
     RAW_DATA_PATH = './datasets/shakespear_corpus.txt'
 
     raw_data = load_data(RAW_DATA_PATH)
@@ -43,7 +34,7 @@ def train_model():
     )
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.01, weight_decay=0.999)
+    optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
     for epoch in range(N_EPOCHS):
         total_loss = 0.0
@@ -52,7 +43,7 @@ def train_model():
         # sequence n°b in the batch, targets[b] is the sequence of 
         # 1 to the right shifted words indexes of the sequence.  
         for batch_idx, (inputs, targets) in enumerate(data_loader):
-            if batch_idx > 10000:
+            if batch_idx > 100:
                 break
 
             optimizer.zero_grad()
