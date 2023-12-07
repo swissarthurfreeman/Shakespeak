@@ -9,13 +9,12 @@ class TestCausalAttention(unittest.TestCase):
         print("[TEST CASE] Running test_CausalAttention...")
         # This is based on TALN's exercice on Self Attention.
         # we just consider the first head and first element in batch. 
-        B, N, d = 5, 3, 4
+        B, N, d = 1, 3, 4
         h, d_k, d_v = 1, 3, 3
         
         csa = CausalSelfAttention(B, N, d, h, d_k, d_v)
         # see https://stackoverflow.com/questions/76949152/why-does-pytorchs-linear-layer-store-the-weight-in-shape-out-in-and-transpos
         # stores as (out, in and does left hand side multiplication X Q)
-        print(list(csa.to_Q.parameters()))
         csa.to_Q.weight = nn.Parameter( # (d x d_k) = (4 x 3)
             torch.transpose(
                 torch.tensor([
@@ -23,51 +22,97 @@ class TestCausalAttention(unittest.TestCase):
                     [3, 0, 2],
                     [1, 4, 2],
                     [0, 1, 2]
-                ], dtype=torch.float64), 
+                ], dtype=torch.float32).repeat(1, h), 
             dim0=0, dim1=1)
+        )
+        csa.to_Q.bias = nn.Parameter(
+            torch.zeros(csa.to_Q.bias.size())
         )
         #csa.to_Q.bias = nn.Parameter(torch.zeros(size=(d, 1)))
 
         csa.to_K.weight = nn.Parameter( # (d x d_k) = (4 x 3)
-            torch.tensor([
-                [1, 3, 2],
-                [2, 1, 1],
-                [2, 0, 1],
-                [1, 1, 3]
-            ], dtype=torch.float64).repeat(1, h)
+            torch.transpose(
+                torch.tensor([
+                    [1, 3, 2],
+                    [2, 1, 1],
+                    [2, 0, 1],
+                    [1, 1, 3]
+                ], dtype=torch.float32),
+            dim0=0, dim1=1)
         )
 
-        csa.to_V.weight = nn.Parameter( # (d x d_v) = (4 x 3)
-            torch.tensor([
-                [3, 1, 0],
-                [0, 2, 1],
-                [2, 1, 2],
-                [2, 3, 0]
-            ], dtype=torch.float64).repeat(1, h)
+        csa.to_K.bias = nn.Parameter(
+            torch.zeros(csa.to_K.bias.size())
         )
+
+        old_size = csa.to_V.weight.size()
+        csa.to_V.weight = nn.Parameter( # (d x d_v) = (4 x 3)
+            torch.transpose(
+                torch.tensor([
+                    [3, 1, 0],
+                    [0, 2, 1],
+                    [2, 1, 2],
+                    [2, 3, 0]
+                ], dtype=torch.float32).repeat(1, h),
+                dim0=0, dim1=1
+            )
+        )
+
+        csa.to_V.bias = nn.Parameter(
+            torch.zeros(csa.to_V.bias.size())
+        )
+
+        self.assertEqual(old_size, csa.to_V.weight.size())  
 
         csa.W_O.weight = nn.Parameter(  # ( h*d_v x d ) = (d_v x d) = (3 x 4)
-            torch.tensor([
-                [1, 0, 0],
-                [0, 1, 0],
-                [0, 0, 1],
-                [0, 0, 0]
-            ], dtype=torch.float64).repeat(1, h)
+            torch.transpose(
+                torch.tensor([
+                    [1, 0, 0],
+                    [0, 1, 0],
+                    [0, 0, 1],
+                    [0, 0, 0]
+                ], dtype=torch.float32).repeat(1, h),
+                dim0=0, dim1=1
+            )
         )
-        
-        #print(list(csa.named_parameters()))
+
+
+        csa.W_O.bias = nn.Parameter(
+            torch.zeros(csa.W_O.bias.size())
+        )
         
         # (N x d) = (3 x 4)
         X = torch.tensor([
             [1, 2, 1, 2], 
             [0, 1, 3, 0], 
             [2, 2, 1, 2]
-        ], dtype=torch.float64)
+        ], dtype=torch.float32)
         X = X.expand(size=(B, N, d))
         
-        csa_X = csa(X)
-        print(csa_X)
+        QKT = csa.ScoreMatrix(X)
+        
+        self.assertAlmostEqual(QKT[0, 0, 0, 0].item(), 148.96, 1)
+        self.assertAlmostEqual(QKT[0, 0, 0, 1].item(), 71.59, 1)    # TALN exercise is wrong here
+        self.assertAlmostEqual(QKT[0, 0, 0, 2].item(), 180.71, 1)
+        self.assertAlmostEqual(QKT[0, 0, 1, 0].item(), 130.48, 1)
+        self.assertAlmostEqual(QKT[0, 0, 1, 1].item(), 53.12, 1)
+        self.assertAlmostEqual(QKT[0, 0, 1, 2].item(), 163.97, 1)
+        self.assertAlmostEqual(QKT[0, 0, 2, 0].item(), 173.78, 1)
+        self.assertAlmostEqual(QKT[0, 0, 2, 1].item(), 84.29, 1)
+        self.assertAlmostEqual(QKT[0, 0, 2, 2].item(), 211.31, 1)
 
+        A = csa.AttentionMatrix(X)
+
+        # rows sum to 1
+        self.assertEqual(torch.sum(A[0, 0, 1, :]), 1)
+        self.assertEqual(torch.sum(A[0, 0, 2, :]), 1)
+
+        # upper triangle is 0
+        self.assertEqual(torch.sum(A[0, 0, 0, 1]), 0)
+        self.assertEqual(torch.sum(A[0, 0, 0, 2]), 0)   
+        self.assertEqual(torch.sum(A[0, 0, 1, 2]), 0)
+
+        
         print("[TEST CASE] test_CausalAttention Successful...")
 
 if __name__ == '__main__':

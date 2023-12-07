@@ -21,19 +21,27 @@ class CausalSelfAttention(nn.Module):
         self.to_V = nn.Linear(d, d_v * h)   # them to h x N x d_vk later. 
         self.W_O = nn.Linear(h*d_v, d)
 
-    def forward(self, X):
-        """Applies multi-head self attention mechanism to B x N x d tensor.
-        Outputs a tensor of logits """
-        print("X size =", X.size())
-        print("Q_size =", self.to_Q.weight.size())
+    def ValuesMatrix(self, X):
+        V: Tensor = self.to_V(X)
+        V = Tensor.contiguous(torch.transpose(
+            V.reshape(shape=(self.B, self.N, self.h, self.d_v)),
+            dim0=1,
+            dim1=2
+        ))  # V is (B x h x N x d_v)
+        return V
 
-        Q: Tensor = self.to_Q(X)
+    def ScoreMatrix(self, X):
+        Q: Tensor = self.to_Q(X)    # Q is (B x N x d_k * h)
+        #print(Q.size())
 
-        Q = Tensor.contiguous(torch.transpose(  # 0       1       2       3
+        Q = Tensor.contiguous(torch.transpose(  
+            #                   0       1       2       3
             Q.reshape(shape=(self.B, self.N, self.h, self.d_k)),
             dim0=1,
             dim1=2
         ))   # Q is (B x h x N x d_k)
+
+        #print(Q.size())
 
         K: Tensor = self.to_K(X)
         K = Tensor.contiguous(torch.transpose(
@@ -42,31 +50,39 @@ class CausalSelfAttention(nn.Module):
             dim1=2  # 0   1   2   3
         ))   # K is (B x h x N x d_k)
 
-        V: Tensor = self.to_V(X)
-        V = Tensor.contiguous(torch.transpose(
-            V.reshape(shape=(self.B, self.N, self.h, self.d_v)),
-            dim0=1,
-            dim1=2
-        ))  # V is (B x h x N x d_v)
-
         # (B x h x N x N)
-        QKT = torch.einsum('bhik,bhkj->bhij', Q, torch.transpose(K, 2, 3))      # BUG : upper triangular matrix must be removed, see Jurafsky.
+        QKT = torch.div(
+            torch.einsum('bhik,bhkj->bhij', Q, torch.transpose(K, 2, 3)), 
+            torch.sqrt(torch.tensor(self.d_k)).item() 
+        )    
+        return QKT
+        
+    def AttentionMatrix(self, X):
+        QKT = self.ScoreMatrix(X)
         
         lower_mask = torch.ones(size=(self.N , self.N)).tril()
         upper_mask = torch.zeros(size=(self.B, self.h, self.N, self.N)).masked_fill_(lower_mask.logical_not(), float("-inf"))
 
-        masked_QKT = QKT * lower_mask + upper_mask
+        QKT = QKT * lower_mask + upper_mask
         
         # A is (B x h x N x N), careful, softmax over last dimension
-        A = F.softmax(torch.div(masked_QKT, sqrt(self.d_k)) , dim=3)
+        A = F.softmax(QKT , dim=3)
+        return A
 
+    def forward(self, X):
+        """Applies multi-head self attention mechanism to B x N x d tensor.
+        Outputs a tensor of logits """
+        A = self.AttentionMatrix(X) # (B x h x N x N)
+        V = self.ValuesMatrix(X)    # (B x h x N x d_v)
+
+        
         # V is (B x h x N x d_v), AV is (B x h x N x d_v)
         AV = torch.einsum('bhik,bhkj->bhij', A, V)
         AV = torch.transpose(AV, dim0=1, dim1=2)    # AV is (B x N x h x d_v)
-
+        
         # AV_concat is (B x N x h*d_v)
         AV_concat = torch.reshape(AV, shape=(self.B, self.N, self.h*self.d_v))
-        # W_O is (h*d_v, d), SA_out is (B x N x d)
-        SA_out = torch.einsum('bni,id->bnd', AV_concat,
-                              torch.transpose(self.W_O.weight, dim0=0, dim1=1))
+        
+        # W_O.weight is (h*d_v, d) (stored transpose), SA_out is (B x N x d)
+        SA_out = torch.einsum('bni,id->bnd', AV_concat, self.W_O.weight)
         return SA_out
