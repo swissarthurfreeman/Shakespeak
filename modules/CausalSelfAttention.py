@@ -16,10 +16,14 @@ class CausalSelfAttention(nn.Module):
         self.d_k = d_k
         self.d_v = d_v
 
+        # weights are d_k*h x d
         self.to_Q = nn.Linear(d, d_k * h)   # since they're h heads, standard practice is to
+        # weights are d_v*h x d
         self.to_K = nn.Linear(d, d_k * h)   # concatenate all heads Q, K, V weights and reshape
+        # weights are d_v*h x d
         self.to_V = nn.Linear(d, d_v * h)   # them to h x N x d_vk later. 
-        self.W_O = nn.Linear(h*d_v, d)
+        # weights are d x h*d_v
+        self.W_O  = nn.Linear(h*d_v, d)      # W_O.weight will be (d, h*d_v)
 
     def ValuesMatrix(self, X):
         V: Tensor = self.to_V(X)
@@ -81,6 +85,7 @@ class CausalSelfAttention(nn.Module):
         # AV_concat is (B x N x h*d_v)
         AV_concat = torch.reshape(AV, shape=(self.B, self.N, self.h*self.d_v))
         
+        #print(AV_concat.size(), self.W_O.weight.size())
         # W_O.weight is (h*d_v, d) (stored transpose), SA_out is (B x N x d)
-        SA_out = torch.einsum('bni,id->bnd', AV_concat, self.W_O.weight)
+        SA_out = self.W_O(AV_concat) # torch.einsum('bni,id->bnd', AV_concat, self.W_O.weight)
         return SA_out
