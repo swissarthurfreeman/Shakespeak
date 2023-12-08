@@ -41,8 +41,6 @@ class CausalSelfAttention(nn.Module):
             dim1=2
         ))   # Q is (B x h x N x d_k)
 
-        #print(Q.size())
-
         K: Tensor = self.to_K(X)
         K = Tensor.contiguous(torch.transpose(
             K.reshape(shape=(self.B, self.N, self.h, self.d_k)),
