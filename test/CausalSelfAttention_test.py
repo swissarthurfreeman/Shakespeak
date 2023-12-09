@@ -40,7 +40,6 @@ class TestCausalAttention(unittest.TestCase):
         old_size = csa.to_K.weight.size()
         self.assertListEqual(list(csa.to_K.weight.size()), [d_k*h, d])
         
-        print("to_K", old_size)
         csa.to_K.weight = nn.Parameter( # (d x d_k) = (4 x 3)
             torch.transpose(
                 torch.tensor([

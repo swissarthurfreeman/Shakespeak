@@ -11,7 +11,6 @@ class TestCharDataSet(unittest.TestCase):
         #                 0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   16   17   19   20   21
         chunk, shifted = cd[0]
         self.assertEqual(chunk.tolist(), [2., 8., 6.])
-        print(chunk.size())
         self.assertEqual(shifted.tolist(), [8., 6., 0.])
 
         chunk, shifted = cd[5]  # uic, ick

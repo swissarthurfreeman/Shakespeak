@@ -35,7 +35,7 @@ class ShakespearModel(nn.Module):
         self.WTE = nn.Embedding(vocabulary_size, d)
         self.transformer: Transformer = Transformer(L=n_layers, B=batch_size, N=N_tokens,
                                                     h=n_heads, d=d, d_k=d_k, d_v=d_v, d_ff=d_ff,
-                                                    V=vocabulary_size, E=self.WTE)
+                                                    V=vocabulary_size)
 
     def forward(self, idx: Tensor) -> Tensor:
         """

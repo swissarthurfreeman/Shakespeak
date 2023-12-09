@@ -7,7 +7,7 @@ import torch.nn.functional as F
 
 class CausalSelfAttention(nn.Module):
     def __init__(self, B, N, d, h, d_k, d_v):
-        super(Cau).__init__()
+        super().__init__()
 
         self.B = B
         self.N = N
@@ -36,7 +36,6 @@ class CausalSelfAttention(nn.Module):
 
     def ScoreMatrix(self, X):
         Q: Tensor = self.to_Q(X)    # Q is (B x N x d_k * h)
-        #print(Q.size())
 
         Q = Tensor.contiguous(torch.transpose(  
             #                   0       1       2       3
