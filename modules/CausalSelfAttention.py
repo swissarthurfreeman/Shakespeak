@@ -7,7 +7,7 @@ import torch.nn.functional as F
 
 class CausalSelfAttention(nn.Module):
     def __init__(self, B, N, d, h, d_k, d_v):
-        super(CausalSelfAttention, self).__init__()
+        super(Cau).__init__()
 
         self.B = B
         self.N = N

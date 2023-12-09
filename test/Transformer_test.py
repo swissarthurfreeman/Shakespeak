@@ -13,8 +13,7 @@ class TestTransformer(unittest.TestCase):
         h, d_k, d_v = 8, 64, 32
         V, d_ff, L = 1000, 2048, 12
         
-        E = nn.Embedding(V, d)
-        t = Transformer(L, B, N, h, d, d_k, d_v, d_ff, V, E)
+        t = Transformer(L, B, N, h, d, d_k, d_v, d_ff, V)
         X = torch.rand(size=(B, N, d)) * 5456   # test stability
 
         Y: Tensor = t(X)

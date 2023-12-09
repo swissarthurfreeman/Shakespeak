@@ -5,7 +5,7 @@ import torch.nn as nn
 class LayerNorm(nn.Module):
     def __init__(self):
         """Initializes a LayerNorm Module"""
-        super(LayerNorm, self).__init__()
+        super().__init__()
         self.gamma = nn.Parameter(torch.ones((1)))
         self.beta = nn.Parameter(torch.zeros((1)))
 

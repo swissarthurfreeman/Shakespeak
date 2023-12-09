@@ -5,8 +5,8 @@ from modules.LayerNorm import LayerNorm
 
 
 class Transformer(nn.Module):
-    def __init__(self, L, B, N, h, d, d_k, d_v, d_ff, V, E):
-        super(Transformer, self).__init__()
+    def __init__(self, L, B, N, h, d, d_k, d_v, d_ff, V):
+        super().__init__()
 
         self.Dropout = nn.Dropout(p=0.1)
 
@@ -17,7 +17,7 @@ class Transformer(nn.Module):
             self.blocks.append(Block(B, N, h, d, d_k, d_v, d_ff))
 
         self.Final_LayerNorm = LayerNorm()
-        self.LM_Head = LanguageHead(E)
+        self.LM_Head = LanguageHead(d, V)
 
     def forward(self, X):
         """

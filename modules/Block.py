@@ -6,7 +6,7 @@ from modules.LayerNorm import LayerNorm
 
 class Block(nn.Module):
     def __init__(self, B, N, h, d, d_k, d_v, d_ff):
-        super(Block, self).__init__()
+        super().__init__()
 
         self.CausalSelfAttn = CausalSelfAttention(B, N, d, h, d_k, d_v)
         self.LayerNorm_1 = LayerNorm()

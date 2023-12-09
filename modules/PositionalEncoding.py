@@ -3,7 +3,7 @@ import torch
 
 class WPE(torch.nn.Module):
     def __init__(self, d):
-        super(WPE, self).__init__()
+        super().__init__()
         self.d = d
 
     def forward(self, x):

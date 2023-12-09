@@ -6,7 +6,7 @@ from torch.nn import functional as F
 class FFN(nn.Module):
     def __init__(self, d, d_ff):
         """Initializes a transformer block FFN module"""
-        super(FFN, self).__init__()
+        super().__init__()
         self.d = d
         self.d_ff = d_ff
         self.L1 = nn.Linear(in_features=d, out_features=d_ff)
