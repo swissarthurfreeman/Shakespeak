@@ -9,9 +9,9 @@ class Block(nn.Module):
         super().__init__()
 
         self.CausalSelfAttn = CausalSelfAttention(B, N, d, h, d_k, d_v)
-        self.LayerNorm_1 = LayerNorm()
+        self.LayerNorm_1 = nn.LayerNorm(d)
         self.FFN = FFN(d, d_ff)
-        self.LayerNorm_2 = LayerNorm()
+        self.LayerNorm_2 = nn.LayerNorm(d)
 
     def forward(self, X):
         """Apply a transformer block to a (B, N, d) batch tensor."""

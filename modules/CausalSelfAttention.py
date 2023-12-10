@@ -8,7 +8,8 @@ import torch.nn.functional as F
 class CausalSelfAttention(nn.Module):
     def __init__(self, B, N, d, h, d_k, d_v):
         super().__init__()
-
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        
         self.B = B
         self.N = N
         self.d = d
@@ -63,7 +64,10 @@ class CausalSelfAttention(nn.Module):
         
         lower_mask = torch.ones(size=(self.N , self.N)).tril()
         upper_mask = torch.zeros(size=(self.B, self.h, self.N, self.N)).masked_fill_(lower_mask.logical_not(), float("-inf"))
-
+        
+        lower_mask = lower_mask.to(self.device)
+        upper_mask = upper_mask.to(self.device)
+        QKT = QKT.to(self.device)
         QKT = QKT * lower_mask + upper_mask
         
         # A is (B x h x N x N), careful, softmax over last dimension

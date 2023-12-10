@@ -28,6 +28,7 @@ class ShakespearModel(nn.Module):
     """
     def __init__(self, n_layers: int, n_heads: int, d: int, d_ff: int, d_k: int, d_v: int, batch_size: int, N_tokens: int, vocabulary_size: int) -> None:
         super(ShakespearModel, self).__init__()
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.d = d
         self.N_tokens = N_tokens
         self.B = batch_size
@@ -58,7 +59,7 @@ class ShakespearModel(nn.Module):
         token_embedding = self.WTE(idx.long())
 
         return self.transformer(token_embedding + position_embedding)
-
+    
     def generate(self, idx: Tensor, n_new_tokens: int, sampling: str = "max") -> Tensor:
         """
         Generate new text based on the input sequence.
@@ -70,39 +71,33 @@ class ShakespearModel(nn.Module):
         Returns:
         - Tensor: Generated new sequence indices, a 1D vector of size (n_new_tokens,).
         """
-        prompt_idx = idx.size(1)                                                       # pointer to start of new tokens buffer
-        input = torch.concat([idx, torch.zeros( size=(1, n_new_tokens) )], dim=-1)     # size is (1, N_prompt + n_new_tokens), just pad. 
+        print("idx", idx)
+        with torch.no_grad():
+            if idx.size(1) + n_new_tokens > self.B * self.N_tokens:
+                print("Too many tokens to fit in attention window, n_new_tokens + len(seed) > B * N_tokens")
+                return
 
-        if prompt_idx > self.N_tokens:  # blablab(la .... blabla 0) 0 0 0 ... 0        window () of N_tokens must be sliced out to have 
-            input = input[prompt_idx-self.N_tokens:]                                   # maximum context characters to extrapolate from
-        
-        N_input = input.size(-1)
+            N_pad = self.B * self.N_tokens - idx.size(1)
+            input = torch.concat([idx, torch.zeros(size=(1, N_pad))], dim=1)
+            input = torch.reshape(input, (self.B, self.N_tokens))
 
-        if N_input < (self.N_tokens*self.B) and N_input % (self.N_tokens*self.B) != 0:               # pad to length multiple of N_tokens*B
-            pad = torch.zeros(size=(1, self.N_tokens*self.B - (N_input % (self.N_tokens*self.B) )))
-            input = torch.concat([input, pad], dim=-1)                                               # input (l * N_tokens * B)
-        else:
-            print("Too many tokens to generate, max len(prompt) + n_new_tokens > %s" % (self.N_tokens*self.B) )
-            print("Please reduce the n_new_tokens or the prompt size.")
-            return
-
-        input = torch.reshape(input, shape=(self.B, self.N_tokens))  # input is tensor of size N_batches x B x N_tokens
-        
-        for _ in range(n_new_tokens):
-            # Get logits
-            logits = self(input)                                    # output is B x N x V
-
-            if sampling == "max":                                   # TODO : try other sampling strategies
-                new_char_idx = torch.argmax(logits, dim=-1)         # B x N
-
-            shape = input.size()
-            input = torch.flatten(input)                            # tensor of size k*N_input
+            idx_char = idx.size(1)
+            for _ in range(n_new_tokens):
+                p_input = self.forward(input)         # B x N x V
+                if sampling == "max":
+                    #print(p_input[0][idx_char].argmax())
+                    #print(p_input[0][idx_char])
+                    #print(p_input[0][idx_char].max())
+                    p_input = torch.argmax(p_input, dim=-1) # B x N, [b][i] contains idx of w_i+1
+                
+                input.flatten()[idx_char] = p_input.flatten()[idx_char]
+                idx_char += 1
             
-            input[prompt_idx] = new_char_idx.flatten()[prompt_idx]
-            prompt_idx += 1
+            return input.flatten()[0:idx.size(1)+n_new_tokens]
 
-            input = torch.reshape(input, shape=shape)
-
-        return input.flatten()[idx.size(0):idx.size(0)+n_new_tokens]
-
-
+    def param_norm(self):
+        with torch.no_grad():
+            vec = torch.zeros(size=(0,))
+            for p in self.parameters():
+                vec = torch.concat([vec, p.flatten()])
+            return torch.norm(vec)

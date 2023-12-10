@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 from modules.Block import Block
 from modules.LanguageHead import LanguageHead
@@ -8,7 +9,7 @@ class Transformer(nn.Module):
     def __init__(self, L, B, N, h, d, d_k, d_v, d_ff, V):
         super().__init__()
 
-        self.Dropout = nn.Dropout(p=0.1)
+        self.Dropout = nn.Dropout(p=0.2)
 
         # L blocks stacked on top of each other, use module list as 
         # python lists are not seen by Pytorch. 
@@ -16,8 +17,16 @@ class Transformer(nn.Module):
         for _ in range(L): 
             self.blocks.append(Block(B, N, h, d, d_k, d_v, d_ff))
 
-        self.Final_LayerNorm = LayerNorm()
+        self.Final_LayerNorm = nn.LayerNorm(normalized_shape=d)
         self.LM_Head = LanguageHead(d, V)
+
+        with torch.no_grad():
+            for m in self.modules():
+                if isinstance(m, nn.Embedding):
+                    m.weight.normal_(mean=0, std=2e-2)
+                elif isinstance(m, nn.LayerNorm):
+                    m.bias.zero_()
+                    m.weight.fill_(1.0)
 
     def forward(self, X):
         """

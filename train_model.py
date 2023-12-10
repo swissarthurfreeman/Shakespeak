@@ -1,3 +1,4 @@
+import torch
 from torch import Tensor
 import torch.nn as nn
 import torch.optim as optim
@@ -13,6 +14,8 @@ def load_data(filename):
     return data
 
 def train_model(N_EPOCHS, N_TOKENS, N_LAYERS, N_HEADS, BATCH_SIZE, D_MODEL, D_K, D_V, D_FF): 
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    
     N_WORKERS = 2
     RAW_DATA_PATH = './datasets/shakespear_corpus.txt'
 
@@ -31,7 +34,7 @@ def train_model(N_EPOCHS, N_TOKENS, N_LAYERS, N_HEADS, BATCH_SIZE, D_MODEL, D_K,
         N_LAYERS, N_HEADS, D_MODEL, 
         D_FF, D_K, D_V, BATCH_SIZE, 
         N_TOKENS, tokenized_data.get_vocab_size()
-    )
+    ).to(device)
 
     criterion = nn.CrossEntropyLoss(reduction='mean')
     optimizer = optim.Adam(model.parameters(), lr=1e-2, betas=(0.9, 0.98), eps=10e-9)
@@ -50,7 +53,7 @@ def train_model(N_EPOCHS, N_TOKENS, N_LAYERS, N_HEADS, BATCH_SIZE, D_MODEL, D_K,
             logits = logits.reshape(shape=(BATCH_SIZE*N_TOKENS, tokenized_data.get_vocab_size())) # B*N x V vector
             loss = criterion(
                 logits,   
-                targets.long().view(-1)             # flattens targets (B x N) to B*N vector
+                targets.long().view(-1).to(device)             # flattens targets (B x N) to B*N vector
             )
             
             loss.backward()
