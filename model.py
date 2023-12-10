@@ -32,6 +32,8 @@ class ShakespearModel(nn.Module):
         self.d = d
         self.N_tokens = N_tokens
         self.B = batch_size
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    
         self.WPE = WPE(self.d)
         self.WTE = nn.Embedding(vocabulary_size, d)
         self.transformer: Transformer = Transformer(L=n_layers, B=batch_size, N=N_tokens,
@@ -50,6 +52,7 @@ class ShakespearModel(nn.Module):
           where out[b][i] is the probability distribution over sorted vocabulary
           of character i+1 in sequence n°b of the batch.
         """
+        idx = idx.to(self.device)
         batch_size, N_tokens = idx.size()   
 
         # positions is B x N, every line is a range[0, N_tokens]

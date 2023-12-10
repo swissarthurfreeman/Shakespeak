@@ -9,7 +9,7 @@ class Transformer(nn.Module):
     def __init__(self, L, B, N, h, d, d_k, d_v, d_ff, V):
         super().__init__()
 
-        self.Dropout = nn.Dropout(p=0.2)
+        self.Dropout = nn.Dropout(p=0)
 
         # L blocks stacked on top of each other, use module list as 
         # python lists are not seen by Pytorch. 

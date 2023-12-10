@@ -36,7 +36,7 @@ def train_model(N_EPOCHS, N_TOKENS, N_LAYERS, N_HEADS, BATCH_SIZE, D_MODEL, D_K,
         N_TOKENS, tokenized_data.get_vocab_size()
     ).to(device)
 
-    criterion = nn.CrossEntropyLoss(reduction='mean')
+    criterion = nn.CrossEntropyLoss(reduction='mean').to(device)
     optimizer = optim.Adam(model.parameters(), lr=1e-2, betas=(0.9, 0.98), eps=10e-9)
 
     for epoch in range(N_EPOCHS):
