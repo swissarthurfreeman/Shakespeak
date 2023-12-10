@@ -1,9 +1,10 @@
 import torch
-from torch import Tensor
 import torch.nn as nn
 import torch.optim as optim
+from torch import Tensor
 from torch.nn import functional as F
 from torch.utils.data.dataloader import DataLoader
+
 from model import ShakespearModel
 from parsing.CharDataSet import CharDataSet
 
@@ -39,6 +40,8 @@ def train_model(N_EPOCHS, N_TOKENS, N_LAYERS, N_HEADS, BATCH_SIZE, D_MODEL, D_K,
     criterion = nn.CrossEntropyLoss(reduction='mean').to(device)
     optimizer = optim.Adam(model.parameters(), lr=1e-2, betas=(0.9, 0.98), eps=10e-9)
 
+
+    model.train()
     for epoch in range(N_EPOCHS):
         total_loss = 0.0
         # batch_idx is index of the batch, inputs/targets are B x N 
@@ -95,8 +98,10 @@ if __name__ == '__main__':
         num_workers=N_WORKERS,
     )
 
-    seed = "O God, O God!"
-    idx = tokenized_data.encode(seed)
-    new_tokens = trained_mod.generate(idx, n_new_tokens=50)
-    print(new_tokens)
-    print(tokenized_data.decode(new_tokens))
+    with torch.autograd.no_grad():
+        trained_mod.eval()
+        seed = "O God, O God!"
+        idx = tokenized_data.encode(seed)
+        new_tokens = trained_mod.generate(idx, n_new_tokens=50)
+        print(new_tokens)
+        print(tokenized_data.decode(new_tokens))
