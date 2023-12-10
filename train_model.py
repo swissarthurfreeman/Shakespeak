@@ -14,15 +14,16 @@ def load_data(filename):
         data = file.read()
     return data
 
-def train_model(N_EPOCHS, N_TOKENS, N_LAYERS, N_HEADS, BATCH_SIZE, D_MODEL, D_K, D_V, D_FF): 
+
+def train_model(N_EPOCHS, N_TOKENS, N_LAYERS, N_HEADS, BATCH_SIZE, D_MODEL, D_K, D_V, D_FF):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    
+
     N_WORKERS = 2
     RAW_DATA_PATH = './datasets/shakespear_corpus.txt'
 
     raw_data = load_data(RAW_DATA_PATH)
     tokenized_data = CharDataSet(N_TOKENS, raw_data)
-    
+
     data_loader = DataLoader(
         tokenized_data,
         shuffle=False,
@@ -30,50 +31,49 @@ def train_model(N_EPOCHS, N_TOKENS, N_LAYERS, N_HEADS, BATCH_SIZE, D_MODEL, D_K,
         num_workers=N_WORKERS,
     )
 
-
     model = ShakespearModel(
-        N_LAYERS, N_HEADS, D_MODEL, 
-        D_FF, D_K, D_V, BATCH_SIZE, 
+        N_LAYERS, N_HEADS, D_MODEL,
+        D_FF, D_K, D_V, BATCH_SIZE,
         N_TOKENS, tokenized_data.get_vocab_size()
     ).to(device)
 
-    criterion = nn.CrossEntropyLoss(reduction='mean').to(device)
-    optimizer = optim.Adam(model.parameters(), lr=1e-2, betas=(0.9, 0.98), eps=10e-9)
-
+    criterion = nn.CrossEntropyLoss().to(device)
+    optimizer = optim.Adam(model.parameters(), lr=0.0001)
 
     model.train()
     for epoch in range(N_EPOCHS):
         total_loss = 0.0
-        # batch_idx is index of the batch, inputs/targets are B x N 
-        # tensors where inputs[b] is the sequence of word indexes of 
-        # sequence n°b in the batch, targets[b] is the sequence of 
-        # 1 to the right shifted words indexes of the sequence.  
+        # batch_idx is index of the batch, inputs/targets are B x N
+        # tensors where inputs[b] is the sequence of word indexes of
+        # sequence n°b in the batch, targets[b] is the sequence of
+        # 1 to the right shifted words indexes of the sequence.
         for batch_idx, (inputs, targets) in enumerate(data_loader):
-
-            optimizer.zero_grad()
-            
-            logits: Tensor = model(inputs)                  # logits is B x N x V vector
-            logits = logits.reshape(shape=(BATCH_SIZE*N_TOKENS, tokenized_data.get_vocab_size())) # B*N x V vector
+            if batch_idx == 100:
+                break
+            # logits is B x N x V vector
+            logits: Tensor = model(inputs)
+            logits = logits.reshape(
+                shape=(BATCH_SIZE*N_TOKENS, tokenized_data.get_vocab_size()))  # B*N x V vector
             loss = criterion(
-                logits,   
-                targets.long().view(-1).to(device)             # flattens targets (B x N) to B*N vector
+                logits,
+                # flattens targets (B x N) to B*N vector
+                targets.long().view(-1).to(device)
             )
-            
+            optimizer.zero_grad()
             loss.backward()
 
             optimizer.step()
             total_loss += loss.item()
-            
-            print(f"batch {batch_idx} - Loss: {loss}")
 
-        average_loss = total_loss / len(data_loader)
+        average_loss = total_loss / 100
         print(f'Epoch [{epoch + 1}/{N_EPOCHS}], Loss: {average_loss:.4f}')
 
     return model
 
+
 if __name__ == '__main__':
 
-    N_EPOCHS = 4
+    N_EPOCHS = 20
     N_TOKENS = 64  # N
     N_LAYERS = 6  # L
     N_HEADS = 4  # h
@@ -85,8 +85,8 @@ if __name__ == '__main__':
     D_FF = 50
     RAW_DATA_PATH = './datasets/shakespear_corpus.txt'
 
-    trained_mod = train_model(N_EPOCHS, N_TOKENS, N_LAYERS, N_HEADS, BATCH_SIZE, D_MODEL, D_K, D_V, D_FF)
-
+    trained_mod = train_model(
+        N_EPOCHS, N_TOKENS, N_LAYERS, N_HEADS, BATCH_SIZE, D_MODEL, D_K, D_V, D_FF)
 
     raw_data = load_data(RAW_DATA_PATH)
 
@@ -102,6 +102,6 @@ if __name__ == '__main__':
         trained_mod.eval()
         seed = "O God, O God!"
         idx = tokenized_data.encode(seed)
-        new_tokens = trained_mod.generate(idx, n_new_tokens=50)
+        new_tokens = trained_mod.generate(idx, n_new_tokens=100)
         print(new_tokens)
         print(tokenized_data.decode(new_tokens))
