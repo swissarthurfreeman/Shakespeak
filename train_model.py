@@ -72,7 +72,6 @@ def train_model(N_EPOCHS, N_TOKENS, N_LAYERS, N_HEADS, BATCH_SIZE, D_MODEL, D_K,
     return model
 
 if __name__ == '__main__':
-
     N_EPOCHS = 4
     N_TOKENS = 64  # N
     N_LAYERS = 6  # L
@@ -84,10 +83,10 @@ if __name__ == '__main__':
     D_V = D_K
     D_FF = 50
     RAW_DATA_PATH = './datasets/shakespear_corpus.txt'
-
+    """
     trained_mod = train_model(N_EPOCHS, N_TOKENS, N_LAYERS, N_HEADS, BATCH_SIZE, D_MODEL, D_K, D_V, D_FF)
 
-
+    """
     raw_data = load_data(RAW_DATA_PATH)
 
     tokenized_data = CharDataSet(N_TOKENS, raw_data)
@@ -98,6 +97,8 @@ if __name__ == '__main__':
         num_workers=N_WORKERS,
     )
 
+    print(len(data_loader))
+    """
     with torch.autograd.no_grad():
         trained_mod.eval()
         seed = "O God, O God!"
@@ -105,3 +106,4 @@ if __name__ == '__main__':
         new_tokens = trained_mod.generate(idx, n_new_tokens=50)
         print(new_tokens)
         print(tokenized_data.decode(new_tokens))
+    """

@@ -1,7 +1,7 @@
 import torch
 from torch import Tensor
 from torch.utils.data import Dataset        
-
+from torch.utils.data.dataloader import DataLoader
 
 class CharDataSet(Dataset):
     """
@@ -49,3 +49,23 @@ class CharDataSet(Dataset):
         """Decode list of character token indexes as string."""
         chars = [self.decoder[i] for i in idx.tolist()]         # why was there an if i != 0 in the list ?  
         return ''.join(chars)                                   # this made decoding of spaces impossible 
+
+
+def load_data(filename):
+    with open(filename, 'r') as file:
+        data = file.read()
+    return data
+
+
+def getLoaderDataset(N, B, path):
+    raw = load_data(path)
+    tokenized_data = CharDataSet(N, raw)
+    
+    data_loader = DataLoader(
+        tokenized_data,
+        shuffle=False,
+        batch_size=B,
+        num_workers=2,
+    )
+
+    return data_loader, tokenized_data

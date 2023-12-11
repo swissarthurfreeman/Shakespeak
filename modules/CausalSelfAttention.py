@@ -70,7 +70,7 @@ class CausalSelfAttention(nn.Module):
         QKT = QKT.to(self.device)
         QKT = QKT * lower_mask + upper_mask
         
-        # A is (B x h x N x N), careful, softmax over last dimension
+        # A is (B x h x N x einsumN), careful, softmax over last dimension
         A = F.softmax(QKT , dim=3)
         return A
 

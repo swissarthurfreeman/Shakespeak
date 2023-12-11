@@ -88,9 +88,6 @@ class ShakespearModel(nn.Module):
             for _ in range(n_new_tokens):
                 p_input = self.forward(input)         # B x N x V
                 if sampling == "max":
-                    #print(p_input[0][idx_char].argmax())
-                    #print(p_input[0][idx_char])
-                    #print(p_input[0][idx_char].max())
                     p_input = torch.argmax(p_input, dim=-1) # B x N, [b][i] contains idx of w_i+1
                 
                 input.flatten()[idx_char] = p_input.flatten()[idx_char]
@@ -100,7 +97,7 @@ class ShakespearModel(nn.Module):
 
     def param_norm(self):
         with torch.no_grad():
-            vec = torch.zeros(size=(0,))
+            vec = torch.zeros(size=(0,)).to(self.device)
             for p in self.parameters():
                 vec = torch.concat([vec, p.flatten()])
             return torch.norm(vec)
