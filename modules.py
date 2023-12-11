@@ -1,7 +1,9 @@
 import math
 import torch
 import torch.nn as nn
+from torch import Tensor
 import torch.nn.functional as F
+
 
 class WPE(torch.nn.Module):
     def __init__(self, d):
@@ -22,7 +24,7 @@ class Block(nn.Module):
     def __init__(self, h, d, d_ff):
         super().__init__()
         
-        self.CausalSelfAttn = QKVAttention(dim_in=d, dim_qk=d//h, dim_v=d//h, nb_heads=h, causal=True, attention_dropout=0)
+        self.CausalSelfAttn = QKVAttention(d, dim_qk=d//h, dim_v=d//h, nb_heads=h, causal=True, attention_dropout=0)
         self.W1 = nn.Linear(d, d_ff)
         self.W2 = nn.Linear(d_ff, d)
 
@@ -33,12 +35,41 @@ class Block(nn.Module):
         X = X + self.CausalSelfAttn(self.LayerNorm1(X))
         out = X + self.W2(F.relu(self.W1(self.LayerNorm2(X))))
         return out
-    
+
+
+class CausalSelfAttention(nn.Module):
+    def __init__(self, d, d_qk, d_v, h, p):
+        super().__init__()
+        self.h = h
+        self.d_qk = d_qk
+        self.d_v = d_v
+
+        self.attention = nn.MultiheadAttention(embed_dim=d, num_heads=h, dropout=p, batch_first=True)
+                
+        self.W_Q = nn.Linear(in_features=d, out_features=h*d_qk)
+        self.W_K = nn.Linear(in_features=d, out_features=h*d_qk)
+        self.W_V = nn.Linear(in_features=d, out_features=h*d_v)
+        self.W_O = nn.Linear(in_features=h*d_v, out_features=d)
+
+    def forward(self, X: Tensor):          # assume input is B x N x d or N x d
+        Q: Tensor = self.W_Q(X)            # B x N x hd_qkv -> B x h x N x d_qkv
+        Q = Q.reshape(shape=(-1, self.h, X.size(-2), self.d_qk)).contiguous()
+
+        K: Tensor = self.W_K(X)
+        K = K.reshape(shape=(-1, self.h, X.size(-2), self.d_qk)).contiguous()
+
+        V = self.W_V(X)
+        V: Tensor = V.reshape(shape=(-1, self.h, X.size(-2), self.d_v)).contiguous()
+
+        AV: Tensor = F.scaled_dot_product_attention(query=Q, key=K, value=V, is_causal=True) # dim B x h x N x d_v
+        AV = torch.transpose(AV, dim0=1, dim1=2)    # B x N x h x d_v
+        AV = torch.reshape(AV, shape=(-1, X.size(-2), self.h * self.d_v))   # B x N x h*d_v, head concat
+        SA_out = self.W_O(AV)
+        return SA_out
+
 
 class QKVAttention(nn.Module):
-    def __init__(
-        self, dim_in, dim_qk, dim_v, nb_heads=1, causal=True, attention_dropout=0.0
-    ):
+    def __init__(self, dim_in, dim_qk, dim_v, nb_heads=1, causal=True, attention_dropout=0.0):
         super().__init__()
 
         def randw(*d):

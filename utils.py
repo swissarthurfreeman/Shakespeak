@@ -24,7 +24,7 @@ class CharDataSet(Dataset):
         data_indices = np.load(path+'.npy').flatten()
         
         data_indices = data_indices[: ( len(data_indices) - (len(data_indices) % N_tokens)) + 1]   # drop last characters to have multiple of N_tokens
-        self.chunks = torch.from_numpy(data_indices)
+        self.chunks = torch.from_numpy(data_indices)    # QUESTION : moving this to gpu crashes the DataLoader, why ?
 
     def get_vocab_size(self):
         return self.vocabulary_size
