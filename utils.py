@@ -24,14 +24,13 @@ class CharDataSet(Dataset):
         data_indices = np.load(path+'.npy').flatten()
         
         data_indices = data_indices[: ( len(data_indices) - (len(data_indices) % N_tokens)) + 1]   # drop last characters to have multiple of N_tokens
-        self.chunks = torch.from_numpy(data_indices[0:-1]).reshape(shape=(-1, N_tokens))
-        self.shifts = torch.from_numpy(data_indices[1:]).reshape(shape=(-1, N_tokens))
+        self.chunks = torch.from_numpy(data_indices)
 
     def get_vocab_size(self):
         return self.vocabulary_size
 
     def __len__(self):
-        return self.chunks.size(0)  # number of encoded sentences loaded
+        return self.chunks.size(0) - self.N_tokens  # number of encoded sentences loaded
 
     def __getitem__(self, idx) -> tuple[Tensor, Tensor]:
         """Grabs sliding window chunk n°idx of N_token characters
@@ -39,7 +38,7 @@ class CharDataSet(Dataset):
         character to an integer and returns the chunk and the 
         shifted version as tensors.
         """
-        return self.chunks[idx, :], self.shifts[idx, :]   # (N_token,), (N_token,) tuple.
+        return self.chunks[idx:idx+self.N_tokens], self.chunks[idx+1:idx+1+self.N_tokens]   # (N_token,), (N_token,) tuple.
 
     def encode(self, text: str) -> Tensor:
         """Map string of characters to vector of indexes."""

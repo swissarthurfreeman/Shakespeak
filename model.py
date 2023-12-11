@@ -54,8 +54,7 @@ def train_model(model: Module, loader: DataLoader, tokenizer: CharDataSet) -> tu
     optimizer = optim.Adam(model.parameters(), lr=1e-4, betas=(0.9, 0.99), eps=10e-9)
     
     for batch_idx, (inputs, targets) in enumerate(loader):
-        if loss.item() < 2:
-            break
+        
         optimizer.zero_grad()
 
         logits: Tensor = model(inputs)
@@ -72,6 +71,9 @@ def train_model(model: Module, loader: DataLoader, tokenizer: CharDataSet) -> tu
 
         print(f"batch {batch_idx}, Loss : {loss.item()}")
 
+        if loss.item() < 2:
+            break
+        
         if batch_idx % 100 == 0 and batch_idx != 0:
             torch.save(model.state_dict(), f"./runs/model_{batch_idx}.pt")
 
