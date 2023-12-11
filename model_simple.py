@@ -35,9 +35,10 @@ class CharDataSet(Dataset):
         character to an integer and returns the chunk and the 
         shifted version as tensors.
         """
+        
         text_chunk: Tensor = self.raw_data[idx:idx+self.N_tokens]
         shifted_text_chunk: Tensor = self.raw_data[idx+1:idx+1+self.N_tokens]
-
+        # TODO : preprocess encode batch before and return readout from tensor already on gpu
         chunk_idx = self.encode(text_chunk).squeeze()
         shifted_idx = self.encode(shifted_text_chunk).squeeze()
         return chunk_idx, shifted_idx   # (N_token,), (N_token,) tuple.
