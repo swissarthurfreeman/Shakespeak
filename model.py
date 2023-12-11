@@ -9,7 +9,7 @@ from torch.utils.data.dataloader import DataLoader
 
 from utils import CharDataSet
 
-class GPT(nn.Module):
+class GPT(Module):
     def __init__(self, B, L, d, d_ff, N, h, V):
         super().__init__()
 
@@ -54,7 +54,8 @@ def train_model(model: Module, loader: DataLoader, tokenizer: CharDataSet) -> tu
     optimizer = optim.Adam(model.parameters(), lr=1e-4, betas=(0.9, 0.99), eps=10e-9)
     
     for batch_idx, (inputs, targets) in enumerate(loader):
-        
+        if loss.item() < 2:
+            break
         optimizer.zero_grad()
 
         logits: Tensor = model(inputs)
