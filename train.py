@@ -26,8 +26,10 @@ def calculate_learning_rate(iteration: int):
 def train_model(args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    data_loader, tokenized_data = getLoaderDataset(
+    training_data_loader, tokenized_data = getLoaderDataset(
         args.n_tokens, args.batch_size, args.dataset)
+    validation_data_loader, _ = getLoaderDataset(
+        args.n_tokens, args.batch_size, args.dataset, False)
     losses = []
     model = GPT(args.batch_size, args.n_layers, args.d_model, 3*args.d_model, args.n_tokens, args.n_heads,
                 tokenized_data.get_vocab_size()).to(device)
@@ -37,7 +39,7 @@ def train_model(args):
     optimizer = optim.Adam(
         model.parameters(), lr=args.learning_rate, betas=betas, eps=eps)
 
-    for batch_idx, (inputs, targets) in enumerate(data_loader):
+    for batch_idx, (inputs, targets) in enumerate(training_data_loader):
 
         lr = calculate_learning_rate(
             batch_idx) if args.use_lr_decay else learning_rate
@@ -60,10 +62,10 @@ def train_model(args):
         if (batch_idx + 1) % 500 == 0 or batch_idx == 0:
             print(f"batch {batch_idx+1}, Loss : {loss.item()}")
 
-        if ((batch_idx + 1) % 1000 == 0 and batch_idx != 0) or batch_idx > max_iterations:
+        if ((batch_idx + 1) % 1000 == 0 and batch_idx != 0) or batch_idx > args.max_iterations:
             torch.save(model.state_dict(), f"./runs/model_{batch_idx+1}.pt")
 
-        if batch_idx > max_iterations:
+        if batch_idx > args.max_iterations:
             break
 
     return model, losses
@@ -132,6 +134,6 @@ if __name__ == '__main__':
     model, losses = train_model(parse_args())
 
     # plt.plot(range(len(losses)), losses)
-    loader, tokenized_data = getLoaderDataset(
+    _, tokenized_data = getLoaderDataset(
         N, B, "./datasets/shakespear_corpus.txt")
     print(tokenized_data.decode(generate(model, tokenized_data.encode("Oh"), 200)))
