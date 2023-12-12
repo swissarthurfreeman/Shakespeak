@@ -13,6 +13,29 @@ from tqdm import tqdm
 from model import GPT
 from utils import generate, getLoaderDataset
 
+B = 12
+N = 64  # context of up to 256 previous characters
+L = 4
+h = 4
+d = 128
+learning_rate = 1e-3
+betas = (0.9, 0.99)
+eps = 10e-9
+n_warmup_iterations = 100
+learning_rate_decay_iterations = 5000
+min_learning_rate = 1e-4
+use_lr_decay = False
+dataset = './datasets/shakespear_corpus.txt'
+out_dir = './runs/'
+# number of batch to use to compute average loss on validation set
+n_validation_batch = 200
+# Validation loss will be computed every {validation_interval} batches.
+validation_interval = 100
+
+# Training will stop as soon as we reach {max_iterations} or the model saw {n_epochs} times the full dataset. (depends which one we reach first)
+max_iterations = 10000
+n_epochs = 10
+
 
 def calculate_learning_rate(iteration: int):
     if iteration < n_warmup_iterations:
@@ -94,7 +117,7 @@ def train_model(args):
                 print(
                     f'Epoch: {epoch}, Batch {batch_idx}, Training Loss: {loss.item()}, Validation Loss: {validation_loss.item()}')
 
-            if ((current_iteration + 1) % 1000 == 0 and current_iteration != 0) or current_iteration > args.max_iterations:
+            if ((current_iteration + 1) % validation_interval == 0 and current_iteration != 0) or current_iteration > args.max_iterations:
                 torch.save(model.state_dict(),
                            f"./runs/model_{current_iteration+1}.pt")
                 if current_iteration > args.max_iterations:
@@ -167,30 +190,6 @@ def save_perplexity_graph(path, perplexities):
 
 if __name__ == '__main__':
     # nanoGPT --device=cpu --compile=False --eval_iters=20 --log_interval=1 --block_size=64 --batch_size=12 --n_layer=4 --n_head=4 --n_embd=128 --max_iters=2000 --lr_decay_iters=2000 --dropout=0.0
-    B = 12
-    N = 64  # context of up to 256 previous characters
-    L = 4
-    h = 4
-    d = 128
-    learning_rate = 1e-3
-    betas = (0.9, 0.99)
-    eps = 10e-9
-    n_warmup_iterations = 100
-    learning_rate_decay_iterations = 5000
-    min_learning_rate = 1e-4
-    use_lr_decay = False
-    dataset = './datasets/shakespear_corpus.txt'
-    out_dir = './runs/'
-    # number of batch to use to compute average loss on validation set
-    n_validation_batch = 200
-    # Validation loss will be computed every {validation_interval} batches.
-    validation_interval = 100
-
-    # Training will stop as soon as we reach {max_iterations} or the model saw {n_epochs} times the full dataset. (depends which one we reach first)
-    max_iterations = 1000
-    n_epochs = 10
-
-    args = parse_args()
     """
     # Saving
     ckpt = {
