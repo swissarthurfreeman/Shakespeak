@@ -96,7 +96,7 @@ def train_model(args):
                 torch.save(model.state_dict(),
                            f"./runs/model_{current_iteration+1}.pt")
                 if current_iteration > args.max_iterations:
-                    return model, losses
+                    return model, losses, calculate_perplexity(losses)
             current_iteration += 1
         losses['epochs'].append(epoch_loss/len(training_data_loader))
 
@@ -125,6 +125,14 @@ def parse_args():
         "--out", help=f"Directory containing the saved models (default: {out_dir}).", type=str, default=out_dir,)
 
     return parser.parse_args()
+
+
+def calculate_perplexity(losses):
+    perplexities = {}
+    perplexities['validation'] = [2 ** loss for loss in losses['validation']]
+    perplexities['train'] = [2 ** loss for loss in losses['train']]
+    perplexities['epochs'] = [2 ** loss for loss in losses['epochs']]
+    return perplexities
 
 
 if __name__ == '__main__':
@@ -169,8 +177,8 @@ if __name__ == '__main__':
     python train.py --use_lr_decay=True
     """
     os.makedirs(out_dir, exist_ok=True)
-    model, losses = train_model(parse_args())
-    print(losses)
+    model, losses, perplexities = train_model(parse_args())
+
     # plt.plot(range(len(losses)), losses)
     _, tokenized_data = getLoaderDataset(
         N, B, "./datasets/shakespear_corpus.txt")
