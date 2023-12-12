@@ -45,36 +45,3 @@ class GPT(Module):
         X = self.Final_LayerNorm(X)
         X = self.LM_Head(X)
         return X
-
-def train_model(model: Module, loader: DataLoader, tokenizer: CharDataSet) -> tuple[nn.Module, list[float]]: 
-    losses: list[float] = []
-    model.train()
-
-    criterion = nn.CrossEntropyLoss(reduction='mean').to(model.device)
-    optimizer = optim.Adam(model.parameters(), lr=1e-4, betas=(0.9, 0.99), eps=10e-9)
-    
-    for batch_idx, (inputs, targets) in enumerate(loader):
-        
-        optimizer.zero_grad()
-
-        logits: Tensor = model(inputs)
-        loss = criterion(
-            logits.flatten(0, -2),
-            targets.view(-1).long().to(model.device)
-        )
-        losses.append(loss.item())
-        loss.backward()
-        
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 10)
-        
-        optimizer.step()
-
-        print(f"batch {batch_idx}, Loss : {loss.item()}")
-
-        if loss.item() < 2:
-            break
-        
-        if batch_idx % 100 == 0 and batch_idx != 0:
-            torch.save(model.state_dict(), f"./runs/model_{batch_idx}.pt")
-
-    return model, losses
