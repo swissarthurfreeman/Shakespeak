@@ -1,3 +1,4 @@
+import argparse
 import math
 
 import torch
@@ -221,25 +222,24 @@ def calculate_learning_rate(iteration: int):
     return min_learning_rate + coefficient * (learning_rate - min_learning_rate)
 
 
-def train_model(L, B, N, d, h, learning_rate):
+def train_model(args):
     data_loader, tokenized_data = getLoaderDataset(
-        N, B, "./datasets/shakespear_corpus.txt")
+        args.n_tokens, args.batch_size, args.dataset)
     losses = []
-    model = GPT(B, L, d, 3 * d, N, h,
+    model = GPT(args.batch_size, args.n_layers, args.d_model, 3*args.d_model, args.n_tokens, args.n_heads,
                 tokenized_data.get_vocab_size()).to('cuda')
     model.train()
 
     criterion = nn.CrossEntropyLoss(reduction='mean').to('cuda')
     optimizer = optim.Adam(
-        model.parameters(), lr=learning_rate, betas=(0.9, 0.99), eps=10e-9)
+        model.parameters(), lr=args.learning_rate, betas=betas, eps=eps)
 
     # inputs, targets = next(iter(data_loader))
     for batch_idx, (inputs, targets) in enumerate(data_loader):
         # for batch_idx in range(1000):
 
         lr = calculate_learning_rate(
-            batch_idx) if use_lr_decay else learning_rate
-        print(lr)
+            batch_idx) if args.use_lr_decay else learning_rate
         for param_group in optimizer.param_groups:
             param_group['lr'] = lr
         optimizer.zero_grad()
@@ -265,6 +265,64 @@ def train_model(L, B, N, d, h, learning_rate):
     return model, losses
 
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--batch_size",
+        "-b",
+        help=f"Batch size (default: {B}).",
+        type=int,
+        default=B,
+    )
+    parser.add_argument(
+        "--n_tokens",
+        "-n",
+        help=f"Number of tokens (default: {N}).",
+        type=int,
+        default=N,
+    )
+    parser.add_argument(
+        "--n_layers",
+        "-l",
+        help=f"Number of layers (default: {L}).",
+        type=int,
+        default=L,
+    )
+    parser.add_argument(
+        "--n_heads",
+        help=f"Number of heads (default: {h}).",
+        type=int,
+        default=h,
+    )
+    parser.add_argument(
+        "--d_model",
+        "-d",
+        help=f"Dimension of model (default: {d}).",
+        type=int,
+        default=d,
+    )
+    parser.add_argument(
+        "--learning_rate",
+        "-lr",
+        help=f"Learning Rate (default: {learning_rate}).",
+        type=float,
+        default=learning_rate,
+    )
+    parser.add_argument(
+        "--use_lr_decay",
+        help=f"Use learning rate decay strategy (default: {use_lr_decay}).",
+        type=bool,
+        default=use_lr_decay,
+    )
+    parser.add_argument(
+        "--dataset",
+        help=f"Dataset file to use for training (default: {dataset}).",
+        type=str,
+        default=dataset,
+    )
+    return parser.parse_args()
+
+
 if __name__ == '__main__':
     B = 64
     N = 256  # context of up to 256 previous characters
@@ -272,10 +330,15 @@ if __name__ == '__main__':
     h = 6
     d = 384
     learning_rate = 1e-4
+    betas = (0.9, 0.99)
+    eps = 10e-9
     n_warmup_iterations = 10
     learning_rate_decay_iterations = 100
     min_learning_rate = 1e-5
     use_lr_decay = True
+    dataset = './datasets/shakespear_corpus.txt'
+
+    args = parse_args()
     # Directorz unique pour chaque run
     """
     # Saving
@@ -291,7 +354,7 @@ if __name__ == '__main__':
     model.load_state_dict(ckpt["model"])
     # opt
     """
-    model, losses = train_model(L, B, N, d, h, learning_rate)
+    model, losses = train_model(parse_args())
 
     # plt.plot(range(len(losses)), losses)
     loader, tokenized_data = getLoaderDataset(
