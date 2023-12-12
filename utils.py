@@ -104,4 +104,3 @@ if __name__ == '__main__':
     for batch_idx, (inputs, targets) in enumerate(loader):
         print(dataset.decode(inputs[0][:10]), "|", dataset.decode(targets[0][:10]))
         break
-        #print(batch_idx, dataset.decode(inputs[0]))

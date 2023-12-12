@@ -1,13 +1,8 @@
 import torch
 import torch.nn as nn
 from modules import WPE
-from torch import Tensor
 from modules import Block
-import torch.optim as optim
 from torch.nn import Module
-from torch.utils.data.dataloader import DataLoader
-
-from utils import CharDataSet
 
 class GPT(Module):
     def __init__(self, B, L, d, d_ff, N, h, V):
