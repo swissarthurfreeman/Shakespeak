@@ -59,8 +59,11 @@ def train_model(args):
         if (batch_idx + 1) % 500 == 0:
             print(f"batch {batch_idx+1}, Loss : {loss.item()}")
 
-        if (batch_idx + 1) % 1000 == 0 and batch_idx != 0:
+        if ((batch_idx + 1) % 1000 == 0 and batch_idx != 0) or batch_idx > max_iterations:
             torch.save(model.state_dict(), f"./runs/model_{batch_idx+1}.pt")
+
+        if batch_idx > max_iterations:
+            break
 
     return model, losses
 
