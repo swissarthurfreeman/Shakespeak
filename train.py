@@ -1,5 +1,6 @@
 import argparse
 import math
+import os
 
 import torch
 import torch.nn as nn
@@ -56,7 +57,7 @@ def train_model(args):
         torch.nn.utils.clip_grad_norm_(model.parameters(), 10)
         optimizer.step()
 
-        if (batch_idx + 1) % 500 == 0:
+        if (batch_idx + 1) % 500 == 0 or batch_idx == 0:
             print(f"batch {batch_idx+1}, Loss : {loss.item()}")
 
         if ((batch_idx + 1) % 1000 == 0 and batch_idx != 0) or batch_idx > max_iterations:
@@ -87,7 +88,9 @@ def parse_args():
     parser.add_argument(
         "--dataset", help=f"Dataset file to use for training (default: {dataset}).", type=str, default=dataset,)
     parser.add_argument(
-        "--max_iterations", help=F"Maximum Number of iterations for training (default: {max_iterations}).", type=int, default=max_iterations,)
+        "--max_iterations", help=f"Maximum Number of iterations for training (default: {max_iterations}).", type=int, default=max_iterations,)
+    parser.add_argument(
+        "--out", help=f"Directory containing the saved models (default: {out_dir}).", type=str, default=out_dir,)
 
     return parser.parse_args()
 
@@ -107,6 +110,7 @@ if __name__ == '__main__':
     min_learning_rate = 1e-4
     use_lr_decay = True
     dataset = './datasets/shakespear_corpus.txt'
+    out_dir = './runs/'
     max_iterations = 5000
     args = parse_args()
     """
@@ -124,6 +128,7 @@ if __name__ == '__main__':
     # opt
     python train.py --use_lr_decay=True
     """
+    os.makedirs(out_dir, exist_ok=True)
     model, losses = train_model(parse_args())
 
     # plt.plot(range(len(losses)), losses)
