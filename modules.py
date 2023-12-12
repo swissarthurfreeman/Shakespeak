@@ -63,8 +63,8 @@ class CausalSelfAttention(nn.Module):
         V = self.W_V(X)
         V: Tensor = V.reshape(shape=(X.size(0), X.size(-2), self.h, self.d_v))
         V = V.transpose(dim0=1, dim1=2).contiguous()
-
-        AV: Tensor = F.scaled_dot_product_attention(query=Q, key=K, value=V, is_causal=True) # dim B x h x N x d_v
+        # UPDATE HERE IF CUDA SUPPORTS F.scaled_dot_product_attention
+        AV: Tensor = scaled_dot_product_attention(query=Q, key=K, value=V, is_causal=True) # dim B x h x N x d_v
         AV = torch.transpose(AV, dim0=1, dim1=2)    # B x N x h x d_v
         AV = torch.reshape(AV, shape=(-1, X.size(-2), self.h * self.d_v))   # B x N x h*d_v, head concat
         SA_out = self.W_O(AV)

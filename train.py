@@ -74,7 +74,6 @@ def parse_args():
     parser.add_argument("--dataset", help=f"Dataset file to use for training (default: {dataset}).", type=str, default=dataset,)
     return parser.parse_args()
 
-
 if __name__ == '__main__':
     # nanoGPT --device=cpu --compile=False --eval_iters=20 --log_interval=1 --block_size=64 --batch_size=12 --n_layer=4 --n_head=4 --n_embd=128 --max_iters=2000 --lr_decay_iters=2000 --dropout=0.0
     B = 12
@@ -105,6 +104,7 @@ if __name__ == '__main__':
     ckpt = torch.load(ckpt_path)
     model.load_state_dict(ckpt["model"])
     # opt
+    python train.py --use_lr_decay=True
     """
     model, losses = train_model(parse_args())
 
