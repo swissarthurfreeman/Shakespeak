@@ -23,6 +23,24 @@ def calculate_learning_rate(iteration: int):
     return min_learning_rate + coefficient * (learning_rate - min_learning_rate)
 
 
+@torch.no_grad()
+def evaluate_model(model, validation_data, criterion):
+    model.eval()
+    losses = torch.zeros(n_validation_batch).to(model.device)
+    # As shuffle of the DataLoader is true, the batches are randomized at each validation
+    for idx, (inputs, targets) in enumerate(validation_data):
+        if idx > n_validation_batch - 1:
+            break
+        logits = model(inputs)
+        loss = criterion(
+            logits.flatten(0, -2),
+            targets.view(-1).long().to(model.device)
+        )
+        losses[idx] = loss
+    model.train()
+    return losses.mean()
+
+
 def train_model(args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -31,6 +49,7 @@ def train_model(args):
     validation_data_loader, _ = getLoaderDataset(
         args.n_tokens, args.batch_size, args.dataset, False)
     losses = []
+    validation_losses = []
     model = GPT(args.batch_size, args.n_layers, args.d_model, 3*args.d_model, args.n_tokens, args.n_heads,
                 tokenized_data.get_vocab_size()).to(device)
     model.train()
@@ -59,8 +78,12 @@ def train_model(args):
         torch.nn.utils.clip_grad_norm_(model.parameters(), 10)
         optimizer.step()
 
-        if (batch_idx + 1) % 500 == 0 or batch_idx == 0:
-            print(f"batch {batch_idx+1}, Loss : {loss.item()}")
+        if batch_idx % validation_interval == 0:
+            validation_loss = evaluate_model(
+                model, validation_data_loader, criterion)
+            validation_losses.append(validation_loss)
+            print(
+                f'batch {batch_idx}, Training Loss: {loss.item()}, Validation Loss: {validation_loss.item()}')
 
         if ((batch_idx + 1) % 1000 == 0 and batch_idx != 0) or batch_idx > args.max_iterations:
             torch.save(model.state_dict(), f"./runs/model_{batch_idx+1}.pt")
@@ -68,7 +91,7 @@ def train_model(args):
         if batch_idx > args.max_iterations:
             break
 
-    return model, losses
+    return model, losses, validation_losses
 
 
 def parse_args():
@@ -114,6 +137,8 @@ if __name__ == '__main__':
     dataset = './datasets/shakespear_corpus.txt'
     out_dir = './runs/'
     max_iterations = 5000
+    validation_interval = max_iterations / 10
+    n_validation_batch = 100
     args = parse_args()
     """
     # Saving
@@ -131,7 +156,7 @@ if __name__ == '__main__':
     python train.py --use_lr_decay=True
     """
     os.makedirs(out_dir, exist_ok=True)
-    model, losses = train_model(parse_args())
+    model, losses, validation_losses = train_model(parse_args())
 
     # plt.plot(range(len(losses)), losses)
     _, tokenized_data = getLoaderDataset(
