@@ -24,7 +24,8 @@ class Block(nn.Module):
     def __init__(self, h, d, d_ff):
         super().__init__()
         
-        self.CausalSelfAttn = QKVAttention(d, dim_qk=d//h, dim_v=d//h, nb_heads=h, causal=True, attention_dropout=0)
+        self.CausalSelfAttn = CausalSelfAttention(d, d_qk=d//h, d_v=d//h, h=h, p=0)
+        #self.CausalSelfAttn = QKVAttention(d, dim_qk=d//h, dim_v=d//h, nb_heads=h, causal=True, attention_dropout=0)
         self.W1 = nn.Linear(d, d_ff)
         self.W2 = nn.Linear(d_ff, d)
 
@@ -43,23 +44,25 @@ class CausalSelfAttention(nn.Module):
         self.h = h
         self.d_qk = d_qk
         self.d_v = d_v
-
-        self.attention = nn.MultiheadAttention(embed_dim=d, num_heads=h, dropout=p, batch_first=True)
-                
+        
         self.W_Q = nn.Linear(in_features=d, out_features=h*d_qk)
         self.W_K = nn.Linear(in_features=d, out_features=h*d_qk)
         self.W_V = nn.Linear(in_features=d, out_features=h*d_v)
         self.W_O = nn.Linear(in_features=h*d_v, out_features=d)
 
-    def forward(self, X: Tensor):          # assume input is B x N x d or N x d
-        Q: Tensor = self.W_Q(X)            # B x N x hd_qkv -> B x h x N x d_qkv
-        Q = Q.reshape(shape=(-1, self.h, X.size(-2), self.d_qk)).contiguous()
+    def forward(self, X: Tensor):          # assume input is Z x B x N x d or N x d
 
+        Q: Tensor = self.W_Q(X)            # B x N x h*d_qkv -> B x N x h x d_qkv
+        Q = Q.reshape(shape=(X.size(0), X.size(-2), self.h, self.d_qk))
+        Q = Q.transpose(dim0=1, dim1=2).contiguous()
+        
         K: Tensor = self.W_K(X)
-        K = K.reshape(shape=(-1, self.h, X.size(-2), self.d_qk)).contiguous()
+        K = K.reshape(shape=(X.size(0), X.size(-2), self.h, self.d_qk))
+        K = K.transpose(dim0=1, dim1=2).contiguous()
 
         V = self.W_V(X)
-        V: Tensor = V.reshape(shape=(-1, self.h, X.size(-2), self.d_v)).contiguous()
+        V: Tensor = V.reshape(shape=(X.size(0), X.size(-2), self.h, self.d_v))
+        V = V.transpose(dim0=1, dim1=2).contiguous()
 
         AV: Tensor = F.scaled_dot_product_attention(query=Q, key=K, value=V, is_causal=True) # dim B x h x N x d_v
         AV = torch.transpose(AV, dim0=1, dim1=2)    # B x N x h x d_v
