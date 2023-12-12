@@ -105,3 +105,4 @@ if __name__ == '__main__':
         new_tokens = trained_mod.generate(idx, n_new_tokens=100)
         print(new_tokens)
         print(tokenized_data.decode(new_tokens))
+

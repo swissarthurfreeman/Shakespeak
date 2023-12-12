@@ -15,3 +15,4 @@ class LanguageHead(nn.Module):
         logits = self.to_V(X)   # B x N x V
         # logits = F.softmax(logits, dim=2)
         return logits
+
