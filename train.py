@@ -45,11 +45,16 @@ def train_model(args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     training_data_loader, tokenized_data = getLoaderDataset(
-        args.n_tokens, args.batch_size, args.dataset)
+        args.n_tokens, args.batch_size, args.dataset,
+        is_training=True, shuffle=True)
     validation_data_loader, _ = getLoaderDataset(
-        args.n_tokens, args.batch_size, args.dataset, False)
-    losses = []
-    validation_losses = []
+        args.n_tokens, args.batch_size, args.dataset, is_training=False, shuffle=True)
+
+    losses = {
+        'train': [],
+        'validation': [],
+        'epochs': []
+    }
     model = GPT(args.batch_size, args.n_layers, args.d_model, 3*args.d_model, args.n_tokens, args.n_heads,
                 tokenized_data.get_vocab_size()).to(device)
     model.train()
@@ -57,41 +62,43 @@ def train_model(args):
     criterion = nn.CrossEntropyLoss(reduction='mean').to(device)
     optimizer = optim.Adam(
         model.parameters(), lr=args.learning_rate, betas=betas, eps=eps)
+    current_iteration = 0
+    for epoch in range(n_epochs):
+        epoch_loss = 0
+        for batch_idx, (inputs, targets) in enumerate(training_data_loader):
+            lr = calculate_learning_rate(
+                current_iteration) if args.use_lr_decay else learning_rate
 
-    for batch_idx, (inputs, targets) in enumerate(training_data_loader):
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = lr
 
-        lr = calculate_learning_rate(
-            batch_idx) if args.use_lr_decay else learning_rate
+            optimizer.zero_grad()
 
-        for param_group in optimizer.param_groups:
-            param_group['lr'] = lr
+            logits: Tensor = model(inputs)
+            loss = criterion(
+                logits.flatten(0, -2),
+                targets.view(-1).long().to(device)
+            )
+            losses['train'].append(loss.item())
+            epoch_loss += loss.item()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 10)
+            optimizer.step()
 
-        optimizer.zero_grad()
+            if current_iteration % validation_interval == 0:
+                validation_loss = evaluate_model(
+                    model, validation_data_loader, criterion)
+                losses['validation'].append(validation_loss.item())
+                print(
+                    f'Epoch: {epoch}, Batch {batch_idx}, Training Loss: {loss.item()}, Validation Loss: {validation_loss.item()}')
 
-        logits: Tensor = model(inputs)
-        loss = criterion(
-            logits.flatten(0, -2),
-            targets.view(-1).long().to(device)
-        )
-        losses.append(loss.item())
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 10)
-        optimizer.step()
-
-        if batch_idx % validation_interval == 0:
-            validation_loss = evaluate_model(
-                model, validation_data_loader, criterion)
-            validation_losses.append(validation_loss)
-            print(
-                f'batch {batch_idx}, Training Loss: {loss.item()}, Validation Loss: {validation_loss.item()}')
-
-        if ((batch_idx + 1) % 1000 == 0 and batch_idx != 0) or batch_idx > args.max_iterations:
-            torch.save(model.state_dict(), f"./runs/model_{batch_idx+1}.pt")
-
-        if batch_idx > args.max_iterations:
-            break
-
-    return model, losses, validation_losses
+            if ((current_iteration + 1) % 1000 == 0 and current_iteration != 0) or current_iteration > args.max_iterations:
+                torch.save(model.state_dict(),
+                           f"./runs/model_{current_iteration+1}.pt")
+                if current_iteration > args.max_iterations:
+                    return model, losses
+            current_iteration += 1
+        losses['epochs'].append(epoch_loss/len(training_data_loader))
 
 
 def parse_args():
@@ -133,12 +140,18 @@ if __name__ == '__main__':
     n_warmup_iterations = 100
     learning_rate_decay_iterations = 5000
     min_learning_rate = 1e-4
-    use_lr_decay = True
+    use_lr_decay = False
     dataset = './datasets/shakespear_corpus.txt'
     out_dir = './runs/'
-    max_iterations = 5000
-    validation_interval = max_iterations / 10
+    # number of batch to use to compute average loss on validation set
     n_validation_batch = 100
+    # Validation loss will be computed every {validation_interval} batches.
+    validation_interval = 10
+
+    # Training will stop as soon as we reach {max_iterations} or the model saw {n_epochs} times the full dataset. (depends which one we reach first)
+    max_iterations = 100
+    n_epochs = 10
+
     args = parse_args()
     """
     # Saving
@@ -156,8 +169,8 @@ if __name__ == '__main__':
     python train.py --use_lr_decay=True
     """
     os.makedirs(out_dir, exist_ok=True)
-    model, losses, validation_losses = train_model(parse_args())
-
+    model, losses = train_model(parse_args())
+    print(losses)
     # plt.plot(range(len(losses)), losses)
     _, tokenized_data = getLoaderDataset(
         N, B, "./datasets/shakespear_corpus.txt")
