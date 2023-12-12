@@ -35,7 +35,6 @@ class CharDataSet(Dataset):
         # QUESTION : moving this to gpu crashes the DataLoader, why ?
         chunks = torch.from_numpy(data_indices)
         n = len(chunks)
-        print(f'n: {n}')
         self.train_chunks = chunks[:int(n*0.9)]
         self.validation_chunks = chunks[int(n*0.9):]
 
@@ -92,11 +91,11 @@ def encodeDataset(path):
     np.save(path, arr=idx)
 
 
-def getLoaderDataset(N, B, path, is_training=True):
+def getLoaderDataset(N, B, path, is_training=True, shuffle=True):
     tokenized_data = CharDataSet(N, path, is_training)
     data_loader = DataLoader(
         tokenized_data,
-        shuffle=True,
+        shuffle=shuffle,
         pin_memory=True,
         batch_size=B,
         num_workers=2,
