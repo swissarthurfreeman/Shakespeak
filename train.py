@@ -2,6 +2,8 @@ import argparse
 import math
 import os
 
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -135,6 +137,34 @@ def calculate_perplexity(losses):
     return perplexities
 
 
+def save_losses_graph(path, losses):
+    plt.clf()
+
+    plt.plot(range(len(losses['train'])), losses['train'], label='Training')
+    plt.plot(range(0, len(losses['train']), validation_interval),
+             losses['validation'], label='Validation')
+    plt.xlabel('Number of batches')
+    plt.ylabel('Loss')
+    plt.title('Training and Validation Loss Over number of batches')
+    plt.legend()
+    plt.savefig(path)
+    plt.show()
+
+
+def save_perplexity_graph(path, perplexities):
+    plt.clf()
+    plt.plot(range(len(perplexities['train'])),
+             perplexities['train'], label='Training')
+    plt.plot(range(0, len(perplexities['train']), validation_interval),
+             perplexities['validation'], label='Validation')
+    plt.xlabel('Number of batches')
+    plt.ylabel('Perplexity')
+    plt.title('Training and Validation Perplexity Over number of batches')
+    plt.legend()
+    plt.savefig(path)
+    plt.show()
+
+
 if __name__ == '__main__':
     # nanoGPT --device=cpu --compile=False --eval_iters=20 --log_interval=1 --block_size=64 --batch_size=12 --n_layer=4 --n_head=4 --n_embd=128 --max_iters=2000 --lr_decay_iters=2000 --dropout=0.0
     B = 12
@@ -152,12 +182,12 @@ if __name__ == '__main__':
     dataset = './datasets/shakespear_corpus.txt'
     out_dir = './runs/'
     # number of batch to use to compute average loss on validation set
-    n_validation_batch = 100
+    n_validation_batch = 200
     # Validation loss will be computed every {validation_interval} batches.
-    validation_interval = 10
+    validation_interval = 100
 
     # Training will stop as soon as we reach {max_iterations} or the model saw {n_epochs} times the full dataset. (depends which one we reach first)
-    max_iterations = 100
+    max_iterations = 1000
     n_epochs = 10
 
     args = parse_args()
@@ -177,9 +207,10 @@ if __name__ == '__main__':
     python train.py --use_lr_decay=True
     """
     os.makedirs(out_dir, exist_ok=True)
+    os.makedirs('./results/', exist_ok=True)
     model, losses, perplexities = train_model(parse_args())
-
-    # plt.plot(range(len(losses)), losses)
+    save_losses_graph('./results/losses.png', losses)
+    save_perplexity_graph('./results/perplexity.png', perplexities)
     _, tokenized_data = getLoaderDataset(
         N, B, "./datasets/shakespear_corpus.txt")
     print(tokenized_data.decode(generate(model, tokenized_data.encode("Oh"), 200)))
