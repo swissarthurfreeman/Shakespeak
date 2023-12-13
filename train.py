@@ -65,15 +65,28 @@ def evaluate_model(model, validation_data, criterion):
     model.train()
     return losses.mean()
 
+# define a cross validation function
+def crossvalid(args,k_fold=10):
+    results = {
+        'models': [],
+        'losses': [],
+        'perplexities': []
+    }
+    for i in range(k_fold):
+        model, losses, perplexities = train_model(args,i)
+        results['models'].append(model)
+        results['losses'].append(losses)
+        results['perplexities'].append(perplexities)
+    print(results)
 
-def train_model(args):
+
+def train_model(args, fold=1, k_fold=10):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     training_data_loader, tokenized_data = getLoaderDataset(
-        args.n_tokens, args.batch_size, args.dataset,
-        is_training=True, shuffle=True)
+        args.n_tokens, args.batch_size, args.dataset, fold, k_fold, is_training=True, shuffle=True)
     validation_data_loader, _ = getLoaderDataset(
-        args.n_tokens, args.batch_size, args.dataset, is_training=False, shuffle=True)
+        args.n_tokens, args.batch_size, args.dataset, fold, k_fold, is_training=False, shuffle=True)
 
     losses = {
         'train': [],

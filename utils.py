@@ -2,9 +2,44 @@ import time
 
 import numpy as np
 import torch
+from torch import nn
+import argparse
 from torch import Tensor
 from torch.utils.data import Dataset
 from torch.utils.data.dataloader import DataLoader
+
+
+class Args(argparse.Namespace):
+    def __init__(self, batch_size, n_tokens, n_layers, n_heads, d_model, use_lr_decay, learning_rate, dataset, max_iterations, out_dir):
+        self.batch_size = batch_size
+        self.n_tokens = n_tokens
+        self.n_layers = n_layers
+        self.n_heads = n_heads
+        self.d_model = d_model
+        self.use_lr_decay = use_lr_decay
+        self.learning_rate = learning_rate
+        self.dataset = dataset
+        self.max_iterations = max_iterations
+        self.out_dir = out_dir
+        
+class LoadedModel(nn.Module):
+    def __init__(self, checkpoint_path, model):
+        super(LoadedModel, self).__init__()
+        
+        # Load the model weights from the checkpoint
+        checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
+        model.load_state_dict(checkpoint)
+        
+        # Set the model attribute
+        self.model = model
+
+    def forward(self, x):
+        pass
+        # Define the forward pass of your model
+        # ...
+        
+    def get_model(self):
+        return self.model
 
 
 class CharDataSet(Dataset):
@@ -16,8 +51,9 @@ class CharDataSet(Dataset):
     and the i+1-th window on the data.   
     """
 
-    def __init__(self, N_tokens: int, path: str, is_training: bool):
+    def __init__(self, N_tokens: int, path: str, fold: int, k_fold: int, is_training: bool):
         self.is_training: bool = is_training
+        self.fold: int = fold
         self.N_tokens: int = N_tokens
         self.raw_data: str = load_data(path)
         self.vocabulary: list[str] = sorted(list(set(self.raw_data)))
@@ -35,8 +71,34 @@ class CharDataSet(Dataset):
         # QUESTION : moving this to gpu crashes the DataLoader, why ?
         chunks = torch.from_numpy(data_indices)
         n = len(chunks)
-        self.train_chunks = chunks[:int(n*0.9)]
-        self.validation_chunks = chunks[int(n*0.9):]
+        fraction = 1/k_fold
+        seg = int(n * fraction)
+        trll = 0
+        trlr = fold * seg
+        vall = trlr
+        valr = fold * seg + seg
+        trrl = valr
+        trrr = n
+        print("train indices: [%d,%d),[%d,%d), test indices: [%d,%d)" % (trll,trlr,trrl,trrr,vall,valr))
+        
+        train_left_indices = list(range(trll,trlr))
+        train_right_indices = list(range(trrl,trrr))
+        
+        train_indices = train_left_indices + train_right_indices
+        val_indices = list(range(vall,valr))
+        
+        #train_set = torch.utils.data.dataset.Subset(dataset,train_indices)
+        #val_set = torch.utils.data.dataset.Subset(dataset,val_indices)
+        
+        #print(len(train_set),len(val_set))
+        
+        self.train_chunks = chunks[train_indices]
+        self.validation_chunks = chunks[val_indices]
+        
+        #print(len(self.train_chunks))
+        #print(len(self.validation_chunks))
+        
+
 
     def get_vocab_size(self):
         return self.vocabulary_size
@@ -91,8 +153,8 @@ def encodeDataset(path):
     np.save(path, arr=idx)
 
 
-def getLoaderDataset(N, B, path, is_training=True, shuffle=True):
-    tokenized_data = CharDataSet(N, path, is_training)
+def getLoaderDataset(N, B, path, fold, k_fold, is_training=True, shuffle=True):
+    tokenized_data = CharDataSet(N, path, fold, k_fold, is_training)
     data_loader = DataLoader(
         tokenized_data,
         shuffle=shuffle,
