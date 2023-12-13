@@ -52,8 +52,8 @@ class CausalSelfAttention(nn.Module):
         self.W_V = nn.Linear(in_features=d, out_features=h*d_v)
         self.W_O = nn.Linear(in_features=h*d_v, out_features=d)
 
-    def forward(self, X: Tensor):          # assume input is Z x B x N x d or N x d
 
+    def forward(self, X: Tensor):          # assume input is Z x B x N x d or N x d
         # B x N x h*d_qkv -> B x N x h x d_qkv
         Q: Tensor = self.W_Q(X)
         Q = Q.reshape(shape=(X.size(0), X.size(-2), self.h, self.d_qk))
