@@ -9,8 +9,8 @@ class BigramLanguageModel:
         self.CharDataSet()
         
     def CharDataSet(self):
-        self.preprocessed_text = self.load_data(self.dataset)
-        self.characters = list(self.preprocessed_text) # split text to char list
+        self.data = self.load_data(self.dataset)
+        self.characters = list(self.data) # split text to char list
         self.nb_characters = len(self.characters)
         self.train_characters = self.characters[:int(0.9*self.nb_characters)]
         self.validation_characters = self.characters[int(0.9*self.nb_characters):]
@@ -75,9 +75,9 @@ class BigramLanguageModel:
     def load_data(self, filename) -> str:
         with open(filename, 'r') as file:
             data = file.read() # read data
-            data = data.lower().replace("\n", ' ') # lower case
-            data = re.sub('[^a-z0-9\.\-]', ' ', data) # remove non-alpha_numeric
-            data = re.sub('\s{2,}', ' ', data) # remove multiple spaces
-            data = '. ' + data.replace('.', ' .') # 
-            data = re.sub(' [a-z0-9] ', '', data) # remove single char (reduce noise)
+            #data = data.lower().replace("\n", ' ') # lower case
+            #data = re.sub('[^a-z0-9\.\-]', ' ', data) # remove non-alpha_numeric
+            #data = re.sub('\s{2,}', ' ', data) # remove multiple spaces
+            #data = '. ' + data.replace('.', ' .') # 
+            #data = re.sub(' [a-z0-9] ', '', data) # remove single char (reduce noise)
         return data
