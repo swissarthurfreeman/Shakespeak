@@ -11,8 +11,8 @@ class WPE(torch.nn.Module):
         super().__init__()
         self.d = d
 
-    def forward(self, x):
-        pos = x.unsqueeze(2)
+    def forward(self, x):   # x is B x N (could also be just N) 
+        pos = x.unsqueeze(2)    # x is B x N x 1, or N x 1
         i = torch.arange(self.d).to(x.device)
         angles = pos * (1 / torch.pow(10000, (2 * i) / self.d))
 

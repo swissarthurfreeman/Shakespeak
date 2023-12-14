@@ -1,5 +1,4 @@
 import unittest
-from torch import Tensor
 from Shakespeak.utils import CharDataSet
 
 
@@ -10,7 +9,6 @@ class TestCharDataSet(unittest.TestCase):
         # vocabulary is [' ', '.', 'T', 'a', 'b', 'c', 'e', 'f', 'h', 'i', 'k', 'n', 'o', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x']
         #                 0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   16   17   19   20   21
         chunk, shifted = cd[0]
-        print(chunk.size(), shifted.size())
         self.assertEqual(chunk.tolist(), [2., 8., 6.])
         self.assertEqual(shifted.tolist(), [8., 6., 0.])
 
@@ -19,6 +17,18 @@ class TestCharDataSet(unittest.TestCase):
         self.assertEqual(shifted.tolist(), [9., 5., 10.])
 
         print("[TEST CASE] test_encoding Successful...")
+
+    
+    def test_chunking(self):
+        print("[TEST CASE] Running test_chunking...")
+        cd = CharDataSet(N_tokens=5, is_training=True, raw_data="The quick brown fox rabbit runs over the fox.", p_train=0.8)
+        # 20 % of characters are left to test set, e.g. CharDataSet only yields elements of "The quick brown fox rabbit runs over". 
+        # vocabulary is [' ', '.', 'T', 'a', 'b', 'c', 'e', 'f', 'h', 'i', 'k', 'n', 'o', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x']
+        #                 0    1    2    3    4    5    6    7    8    9   10   11   12   13   14   15   16   17   19   20   21
+        chunk, _ = cd[31]
+        self.assertEqual(chunk.tolist(), cd.encode(" over").flatten().tolist())
+
+        print("[TEST CASE] test_chunking Successful...")
     
     def test_decoding(self):
         print("[TEST CASE] Running test_decoding...")

@@ -13,7 +13,7 @@ class CharDataSet(Dataset):
     allows subscripting by i, where CharDataSet[i] yields a tuple with the i-th sliding window 
     and the i+1-th window on the data.
     """
-    def __init__(self, N_tokens: int, is_training: bool = True, path: str = None, raw_data: str = None, p_train: int=1):
+    def __init__(self, N_tokens: int, path: str = None, is_training: bool = True, raw_data: str = None, p_train: int=0.9):
         """Instantiate a char dataset, if raw_data is provided, the fulltext is assumed to be raw_data, if not
         the file pointed to by path is opened and it's lines read. If is_training is True, __getitem__() will
         yield training dataset tuples, otherwise they will be validation dataset tuples. p_train is the percentage
@@ -36,7 +36,9 @@ class CharDataSet(Dataset):
         self.decoder: dict[int, str] = {i: ch for i, ch in enumerate(self.vocabulary)}
 
         if data_indices == None:                                    # raw_data was not provided
-            data_indices = self.encode(self.raw_data)
+            data_indices = self.encode(self.raw_data).flatten()     # always flatten
+            if path != None:
+                np.save(path, arr=data_indices)                     # e.g. path provided .txt file exists but no .npy file exists 
 
         # drop last characters to have multiple of N_tokens
         data_indices = data_indices[:(len(data_indices)-(len(data_indices) % N_tokens))+1]
@@ -44,15 +46,6 @@ class CharDataSet(Dataset):
         n = len(data_indices)
         self.train_chunks = data_indices[:int(n*p_train)]         # if p_val=0.9, 90% train
         self.validation_chunks = data_indices[int(n*p_train):]    # 10% validation
-
-        """ see https://stackoverflow.com/questions/77654458/define-getitem-wthin-class-constructor
-        if self.is_training:    # avoids if at runtime
-            self.__getitem__ = lambda self, idx: (self.train_chunks[idx:idx+self.N_tokens], 
-                                                  self.train_chunkschunks[idx+1:idx+1+self.N_tokens])
-        else:
-            self.__getitem__ = lambda self, idx: (self.validation_chunks[idx:idx+self.N_tokens], 
-                                                  self.validation_chunks[idx+1:idx+1+self.N_tokens])
-        """
                                                   
     def get_vocab_size(self):
         return self.vocabulary_size
@@ -60,6 +53,7 @@ class CharDataSet(Dataset):
     def __len__(self):
         # number of encoded sentences loaded
         chunks = self.train_chunks if self.is_training else self.validation_chunks
+        print(chunks.size(0), self.N_tokens)
         return chunks.size(0) - self.N_tokens
     
     def __getitem__(self, idx) -> tuple[Tensor, Tensor]:
@@ -69,15 +63,16 @@ class CharDataSet(Dataset):
         shifted version as tensors.
         '''
         chunks = self.train_chunks if self.is_training else self.validation_chunks
-        # (N_token,), (N_token,) tuple.
+        # (N_token,), (N_token,) tuple, chunks must be flattened
         return chunks[idx:idx+self.N_tokens], chunks[idx+1:idx+1+self.N_tokens]
     
     def encode(self, text: str) -> Tensor:
-        """Map string of characters to vector of indexes."""
-        idx = torch.zeros(size=(len(
-            text),), dtype=torch.float32)      # BUG : before we were using self.N_tokens, but this is not expected behavior.
+        """Map string of characters to vector of indexes.
+        Returns a (1, len(text)) tensor."""
+        idx = torch.zeros(size=(1, len(
+            text),), dtype=torch.float32)      
         for i, char in enumerate(text):
-            idx[i] = self.encoder[char]
+            idx[0, i] = self.encoder[char]     # BUG : why is this a 1 x len(text) vector ? Why not len(text) vector ?  
         return idx
 
     def decode(self, idx: Tensor) -> str:
@@ -87,28 +82,14 @@ class CharDataSet(Dataset):
         # this made decoding of spaces impossible
         return ''.join(chars)
 
-
 def load_data(path):
     with open(path, 'r') as file:
-        data = file.read()
+        data = "".join(file.readlines())
     return data
 
 
-def encodeDataset(path):
-    """Encode character dataset path to single numpy vector of indices."""
-    text = load_data(path)
-    voc = sorted(list(set(text)))
-    encoder: dict[str, int] = {ch: i for i, ch in enumerate(voc)}
-
-    # TODO : Generalize to larger vocabulary sizes
-    idx = np.zeros(shape=(len(text),), dtype=np.uint8)
-    for i, char in enumerate(text):
-        idx[i] = encoder[char]
-    np.save(path, arr=idx)
-
-
 def getLoaderDataset(N, B, path, is_training=True, shuffle=True):
-    tokenized_data = CharDataSet(N, path, is_training)
+    tokenized_data = CharDataSet(N_tokens=N, path=path, is_training=is_training)
     data_loader = DataLoader(
         tokenized_data,
         shuffle=shuffle,

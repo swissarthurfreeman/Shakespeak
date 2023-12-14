@@ -1,6 +1,6 @@
 import unittest
 import torch
-from modules.PositionalEncoding import WPE
+from Shakespeak.modules import WPE
 
 
 class TestPositionalEncoding(unittest.TestCase):
