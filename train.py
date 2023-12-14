@@ -88,7 +88,7 @@ class Training:
             'perplexities': []
         }
         for i in range(k_fold):
-            model, losses, perplexities = self.train_model(self.args,i)
+            model, losses, perplexities = self.train_model(fold=i)
             results['models'].append(model)
             results['losses'].append(losses)
             results['perplexities'].append(perplexities)
@@ -191,9 +191,11 @@ class Training:
     def save_losses_graph(self, path, losses):
         plt.clf()
 
-        plt.plot(range(len(losses['train'])), losses['train'], label='Training')
-        plt.plot(range(0, len(losses['train']), self.validation_interval),
-                losses['validation'], label='Validation')
+        plt.plot(range(len(losses['train'])), losses['train'], label='Training_mean')
+        plt.fill_between(range(len(losses['train'])), losses['train'] - losses['train_var'], losses['train'] + losses['train_var'], alpha=0.3, label='Variance Area for train')
+        
+        plt.plot(range(0, len(losses['train']), self.validation_interval), losses['validation'], label='Validation_mean')
+        plt.fill_between(range(0, len(losses['train']), self.validation_interval), losses['validation'] - losses['validation_var'], losses['validation'] + losses['validation_var'], alpha=0.3, label='Variance Area for validation')
         plt.xlabel('Number of batches')
         plt.ylabel('Loss')
         plt.title('Training and Validation Loss Over number of batches')
@@ -204,10 +206,11 @@ class Training:
 
     def save_perplexity_graph(self, path, perplexities):
         plt.clf()
-        plt.plot(range(len(perplexities['train'])),
-                perplexities['train'], label='Training')
-        plt.plot(range(0, len(perplexities['train']), self.validation_interval),
-                perplexities['validation'], label='Validation')
+        plt.plot(range(len(perplexities['train'])), perplexities['train'], label='Training_mean')
+        plt.fill_between(range(len(perplexities['train'])), perplexities['train'] - perplexities['train_var'], perplexities['train'] + perplexities['train_var'], alpha=0.3, label='Variance Area for train')
+        
+        plt.plot(range(0, len(perplexities['train']), self.validation_interval), perplexities['validation'], label='Validation_mean')
+        plt.fill_between(range(0, len(perplexities['train']), self.validation_interval), perplexities['validation'] - perplexities['validation_var'], perplexities['validation'] + perplexities['validation_var'], alpha=0.3, label='Variance Area for validation')
         plt.xlabel('Number of batches')
         plt.ylabel('Perplexity')
         plt.title('Training and Validation Perplexity Over number of batches')
