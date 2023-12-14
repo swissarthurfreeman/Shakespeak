@@ -1,5 +1,4 @@
 import time
-
 import numpy as np
 import torch
 from torch import nn
@@ -57,51 +56,36 @@ class CharDataSet(Dataset):
         self.N_tokens: int = N_tokens
         self.raw_data: str = load_data(path)
         self.vocabulary: list[str] = sorted(list(set(self.raw_data)))
-        self.vocabulary_size: int = len(self.vocabulary)
-        self.encoder: dict[str, int] = {
-            ch: i for i, ch in enumerate(self.vocabulary)}
-        self.decoder: dict[int, str] = {
-            i: ch for i, ch in enumerate(self.vocabulary)}
+        
+        self.encoder: dict[str, int] = {ch: i for i, ch in enumerate(self.vocabulary)}
+        self.decoder: dict[int, str] = {i: ch for i, ch in enumerate(self.vocabulary)}
 
         data_indices = np.load(path+'.npy').flatten()
 
         # drop last characters to have multiple of N_tokens
-        data_indices = data_indices[: (
-            len(data_indices) - (len(data_indices) % N_tokens)) + 1]
-        # QUESTION : moving this to gpu crashes the DataLoader, why ?
-        chunks = torch.from_numpy(data_indices)
-        n = len(chunks)
-        fraction = 1/k_fold
-        seg = int(n * fraction)
-        trll = 0
-        trlr = fold * seg
-        vall = trlr
-        valr = fold * seg + seg
-        trrl = valr
-        trrr = n
-        print("train indices: [%d,%d),[%d,%d), test indices: [%d,%d)" % (trll,trlr,trrl,trrr,vall,valr))
+        data_indices = data_indices[:(len(data_indices) - (len(data_indices) % N_tokens)) + 1]
         
-        train_left_indices = list(range(trll,trlr))
-        train_right_indices = list(range(trrl,trrr))
+        chunks = torch.from_numpy(data_indices)       # cross validation will segment |train0|train1|...|test|train_i|...|train_n, n = len(chunks)/k_fold
+        fraction = 1/k_fold                           # test chunk is somewhere in the middle of the train data
+        length_test = int(len(chunks) * fraction)     # it is from character [val_start, val_end] of length seg.
+
+        val_start = fold * length_test                # val_start is index of start of validation chunk, NOTE : this is not test data per say, as model
+        val_end = val_start + length_test             # selection will be done on it. Test performance is done on data the model has NEVER encountered
+                                                      # and hence has NEVER influenced the model.
+        print("train indices: [%d,%d),[%d,%d), test indices: [%d,%d)" % (0, val_start, val_end, len(chunks), val_start, val_end))   
+        
+        train_left_indices = list(range(val_start))
+        train_right_indices = list(range(val_end, len(chunks)))
         
         train_indices = train_left_indices + train_right_indices
-        val_indices = list(range(vall,valr))
-        
-        #train_set = torch.utils.data.dataset.Subset(dataset,train_indices)
-        #val_set = torch.utils.data.dataset.Subset(dataset,val_indices)
-        
-        #print(len(train_set),len(val_set))
+        val_indices = list(range(val_start, val_end))
         
         self.train_chunks = chunks[train_indices]
         self.validation_chunks = chunks[val_indices]
         
-        #print(len(self.train_chunks))
-        #print(len(self.validation_chunks))
-        
-
 
     def get_vocab_size(self):
-        return self.vocabulary_size
+        return len(self.vocabulary)
 
     def __len__(self):
         # number of encoded sentences loaded

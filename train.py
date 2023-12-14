@@ -1,43 +1,15 @@
-import argparse
-import math
 import os
-
-import matplotlib.pyplot as plt
-import numpy as np
+import math
 import torch
+import argparse
+import numpy as np
 import torch.nn as nn
-import torch.optim as optim
-from torch import Tensor
-from tqdm import tqdm
-
 from model import GPT
+from tqdm import tqdm
+from torch import Tensor
+import torch.optim as optim
+import matplotlib.pyplot as plt
 from utils import generate, getLoaderDataset
-
-'''
-B = 12
-N = 64  # context of up to 256 previous characters
-L = 4
-h = 4
-d = 128
-learning_rate = 1e-3
-betas = (0.9, 0.99)
-eps = 10e-9
-n_warmup_iterations = 100
-learning_rate_decay_iterations = 5000
-min_learning_rate = 1e-4
-use_lr_decay = False
-dataset = './datasets/shakespear_corpus.txt'
-out_dir = './runs/'
-# number of batch to use to compute average loss on validation set
-n_validation_batch = 200
-# Validation loss will be computed every {validation_interval} batches.
-validation_interval = 100
-
-# Training will stop as soon as we reach {max_iterations} or the model saw {n_epochs} times the full dataset. (depends which one we reach first)
-max_iterations = 10000
-n_epochs = 10
-'''
-
 
 
 class Training:
@@ -95,7 +67,7 @@ class Training:
         return results
 
 
-    def train_model(self, fold=1, k_fold=10):
+    def train_model(self, fold=1, k_fold=10) -> tuple[GPT, dict[str, list], dict[str, list]]:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         training_data_loader, tokenized_data = getLoaderDataset(
@@ -103,20 +75,16 @@ class Training:
         validation_data_loader, _ = getLoaderDataset(
             self.args.n_tokens, self.args.batch_size, self.args.dataset, fold, k_fold, is_training=False, shuffle=True)
 
-        losses = {
-            'train': [],
-            'validation': [],
-            'epochs': []
-        }
+        losses = {'train': [],'validation': [],'epochs': []}
         model = GPT(self.args.batch_size, self.args.n_layers, self.args.d_model, 3*self.args.d_model, self.args.n_tokens, self.args.n_heads,
                     tokenized_data.get_vocab_size()).to(device)
         model.train()
 
         criterion = nn.CrossEntropyLoss(reduction='mean').to(device)
-        optimizer = optim.Adam(
-            model.parameters(), lr=self.args.learning_rate, betas=self.betas, eps=self.eps)
+        optimizer = optim.Adam(model.parameters(), lr=self.args.learning_rate, betas=self.betas, eps=self.eps)
+        
         current_iteration = 0
-        for epoch in range(self.n_epochs):
+        for epoch in range(self.n_epochs):      # TODO : Remove epoch notion. We never exhaust training iterator with the size of our dataset. 
             epoch_loss = 0
             for batch_idx, (inputs, targets) in enumerate(training_data_loader):
                 lr = self.calculate_learning_rate(
@@ -134,6 +102,7 @@ class Training:
                 )
                 losses['train'].append(loss.item())
                 epoch_loss += loss.item()
+                
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 10)
                 optimizer.step()
@@ -180,7 +149,7 @@ class Training:
         return parser.parse_args()
 
 
-    def calculate_perplexity(self, losses):
+    def calculate_perplexity(self, losses): # TODO : move this to train, directly append in train loop. 
         perplexities = {}
         perplexities['validation'] = [2 ** loss for loss in losses['validation']]
         perplexities['train'] = [2 ** loss for loss in losses['train']]
