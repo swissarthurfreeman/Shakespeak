@@ -53,7 +53,12 @@ class Training:
         return losses.mean()
 
     # define a cross validation function
-    def crossvalid(self, k_fold=10):
+    def crossvalid(self, k_fold=10) -> dict[str, list[GPT | dict[str, list]]]:
+        """Returns dictionary of keyed by model, losses and perplexities.
+        Values are a list where element i corresponds to a particular fold
+        and the values in said lists are either models if looking at the 
+        models key, or are dictionaries keyed by losses, validation or perplexity
+        and yield lists of the latter."""
         results = {
             'models': [],
             'losses': [],
@@ -108,15 +113,14 @@ class Training:
                 optimizer.step()
 
                 if current_iteration % self.validation_interval == 0:
-                    validation_loss = self.evaluate_model(
-                        model, validation_data_loader, criterion)
+                    validation_loss = self.evaluate_model(model, validation_data_loader, criterion)
+                    
                     losses['validation'].append(validation_loss.item())
-                    print(
-                        f'Epoch: {epoch}, Batch {batch_idx}, Training Loss: {loss.item()}, Validation Loss: {validation_loss.item()}')
+                    print(f'Epoch: {epoch}, Batch {batch_idx}, Training Loss: {loss.item()}, Validation Loss: {validation_loss.item()}')
 
                 if ((current_iteration + 1) % self.validation_interval == 0 and current_iteration != 0) or current_iteration > self.args.max_iterations:
-                    torch.save(model.state_dict(),
-                            f"./runs/model_{current_iteration+1}.pt")
+                    torch.save(model.state_dict(), f"./runs/model_{current_iteration+1}.pt")
+                    
                     if current_iteration > self.args.max_iterations:
                         return model, losses, self.calculate_perplexity(losses)
                 current_iteration += 1
