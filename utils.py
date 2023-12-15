@@ -16,10 +16,10 @@ class Args(argparse.Namespace):
     def __init__(self, 
                  batch_size=10, n_tokens=64, n_layers=4, n_heads=4, 
                  d_model=128, use_lr_decay=True, lr=1e-3, dataset_path="./datasets/shakespear_corpus.txt", 
-                 max_iter=100, out_dir=None, n_warm_iters=100, 
+                 max_iter=100, out_dir="./runs/", n_warm_iters=100, 
                  lr_decay_iter=5000, min_lr=1e-4, 
                  n_validation_batch=200, betas=(0.9, 0.99), 
-                 n_epochs=10, val_int = 100
+                 n_epochs=10, val_int = 100, save=True, save_int=200, name="milkshake"
         ):
         
         self.batch_size = batch_size
@@ -39,9 +39,9 @@ class Args(argparse.Namespace):
         self.dataset_path: str  = dataset_path
         """Path towards .txt file."""
         self.max_iter = max_iter
-        """Maximum number of gradient updates."""
+        """Number of gradient updates to perform."""
         self.out_dir = out_dir
-        """Where to save metric results, plots."""
+        """Where to save models, results, plots."""
         self.n_warm_iters = n_warm_iters
         self.lr_decay_iter = lr_decay_iter
         """No of iter during which lr will decay, lr=min_lr"""
@@ -55,6 +55,12 @@ class Args(argparse.Namespace):
         """Number of times to iterate on dataset."""
         self.val_int = val_int
         """Interval of iters to pass before computing val loss."""
+        self.save = save
+        """Wether to save the model every save_int steps."""
+        self.save_int = save_int
+        """No of ints before saving model state to file"""
+        self.name = name
+        """Name of the model / run """
 
     @staticmethod
     def parse_args() -> argparse.Namespace: 
@@ -65,11 +71,11 @@ class Args(argparse.Namespace):
                             help=f"Batch size (default: {default_args.batch_size}).", 
                             type=int, default=default_args.batch_size,)
         
-        parser.add_argument("--n_tokens", "-n", 
+        parser.add_argument("--n_tokens", "-N", 
                             help=f"Number of tokens (default: {default_args.n_tokens}).", 
                             type=int, default=default_args.n_tokens,)
         
-        parser.add_argument("--n_layers", "-l", help=f"Number of layers (default: {default_args.n_layers}).", 
+        parser.add_argument("--n_layers", "-L", help=f"Number of layers (default: {default_args.n_layers}).", 
                             type=int, default=default_args.n_layers,)
         
         parser.add_argument("--n_heads", help=f"Number of heads (default: {default_args.n_heads}).", 
@@ -109,7 +115,6 @@ class Args(argparse.Namespace):
                     (default: {default_args.n_warm_iters}).''', 
                     type=int, default=default_args.n_warm_iters,)
 
-
         parser.add_argument("--min_lr", nargs='?', help=f'''Minimum lr value 
                     (default: {default_args.min_lr}).''', 
                     type=int, default=default_args.min_lr,)
@@ -125,6 +130,18 @@ class Args(argparse.Namespace):
         parser.add_argument("--out_dir", nargs='?', help=f'''Directory containing the saved 
                             models (default: {default_args.out_dir}).''', type=str, 
                             default=default_args.out_dir,)
+
+        parser.add_argument("--name", nargs='?', help=f'''Name of the model / run 
+                            (default: {default_args.name}).''', type=str, 
+                            default=default_args.name,)
+        
+        parser.add_argument("--save_int", nargs='?', help=f'''No of ints before saving model state to file 
+                            (default: {default_args.save_int}).''', type=int, 
+                            default=default_args.save_int,)
+
+        parser.add_argument("--save", nargs='?', help=f'''Wether to save the model every save_int steps 
+                            (default: {default_args.save}).''', type=bool, 
+                            default=default_args.save,)
 
         return parser.parse_args()     # this will contain all Args type values
 
@@ -197,7 +214,6 @@ class CharDataSet(Dataset):
     def __len__(self):
         # number of encoded sentences loaded
         chunks = self.train_chunks if self.is_training else self.validation_chunks
-        print(chunks.size(0), self.N_tokens)
         return chunks.size(0) - self.N_tokens
     
     def __getitem__(self, idx) -> tuple[Tensor, Tensor]:
@@ -227,7 +243,6 @@ class CharDataSet(Dataset):
         return ''.join(chars)
 
 def load_data(path):
-    print(path)
     with open(path, 'r') as file:
         data = "".join(file.readlines())
     return data
@@ -267,9 +282,10 @@ def generate(model, idx, max_new_tokens):
     for k in range(max_new_tokens):
         logits = model(input)
         char_id = torch.distributions.categorical.Categorical(
-            logits=logits[0, -1, :]).sample()
+            logits=logits[0, -1, :]
+        ).sample()
 
-        new_c = torch.tensor(char_id).reshape(shape=(1, 1))
+        new_c = char_id.reshape(shape=(1, 1))
         input = torch.concat((input, new_c), dim=-1)
     return input.flatten()
 

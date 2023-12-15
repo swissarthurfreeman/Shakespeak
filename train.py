@@ -1,3 +1,4 @@
+import os
 import math
 import torch
 import argparse
@@ -115,9 +116,14 @@ class Training:
                 if curr_iter % self.args.val_int == 0:   # every val_int, compute val loss.
                     validation_loss = self.evaluate_model(model, validation_data_loader, criterion).item()
                     losses['validation'].append(validation_loss)
-                    print(f'Epoch: {epoch}, Batch {batch_idx}, Training Loss: {"{:.4f}".format(loss.item())}, Validation Loss: {"{:.4f}".format(validation_loss)}')
+                    print(f'Epoch: {epoch}, Batch index {curr_iter}, Training Loss: {"{:.4f}".format(loss.item())}, Validation Loss: {"{:.4f}".format(validation_loss)}')
                     
-                    torch.save(model.state_dict(), f"./runs/model_{curr_iter+1}.pt")
+                if self.args.save and curr_iter % self.args.save_int == 0:
+                    ckpt = {'model': model.state_dict(), 'params': vars(self.args)}
+                    if not os.path.isdir(f"./runs/{self.args.name}"):
+                        os.makedirs(f"./runs/{self.args.name}")
+                    
+                    torch.save(ckpt, f"./runs/{self.args.name}/{self.args.name}_{epoch}_{curr_iter}.pt")
                     
                 if curr_iter > self.args.max_iter:
                     return model, losses
