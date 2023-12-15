@@ -3,7 +3,7 @@ import torch
 import argparse
 import torch.nn as nn
 from model import GPT
-from utils import Args
+from utils import Args, generate
 from torch import Tensor
 import torch.optim as optim
 import matplotlib.pyplot as plt
@@ -11,17 +11,17 @@ from utils import getLoaderDataset, DataLoader
 
 
 class Training:
-    """Helper class to run a series of trainings.
+    """Helper class to train or cross-validate models.
     Defines a cross_validation() method, that'll run
     a series of trainings with specified arguments 
     with k-fold partitions of the data."""
-    def __init__(self, args: Args):
+    def __init__(self, args: argparse.Namespace):
         self.args = args
         self.train_loss: Tensor = Tensor()
         """Vector of ce_loss at every grad update of all folds on train."""
         self.val_loss: Tensor = Tensor()
         """Vector of ce_loss at every grad update of all folds on validation."""
-        
+        self.tokenized_data = None
 
     def calculate_lr(self, iteration: int) -> float:
         if iteration < self.args.n_warm_iters:
@@ -70,20 +70,22 @@ class Training:
         """Matrix (k-fold x n°steps) of ce_loss at every grad update of all folds on validation."""
         return models, self.train_loss, self.val_loss
 
-    def train_model(self, fold=1, k_fold=10) -> tuple[GPT, dict[str, list]]:
+    def train_model(self, fold=None, k_fold=None) -> tuple[GPT, dict[str, list]]:
+        """Leave fold, k_fold as None if we're not doing cross validation. In which
+        case DataLoader will split data into 90% train and 10% validation."""
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-        training_data_loader, tokenized_data = getLoaderDataset(
-            N=self.args.n_tokens, B=self.args.batch_size, path=self.args.dataset_path, 
+        training_data_loader, self.tokenized_data = getLoaderDataset(
+            N=self.args.n_tokens, B=self.args.batch_size, dataset_path=self.args.dataset_path, 
             fold=fold, k_fold=k_fold, is_training=True, shuffle=True)
         
         validation_data_loader, _ = getLoaderDataset(
-            N=self.args.n_tokens, B=self.args.batch_size, path=self.args.dataset_path, 
+            N=self.args.n_tokens, B=self.args.batch_size, dataset_path=self.args.dataset_path, 
             fold=fold, k_fold=k_fold, is_training=False, shuffle=True)
 
         losses = {'train': [],'validation': []}
         model = GPT(self.args.batch_size, self.args.n_layers, self.args.d_model, 3*self.args.d_model, self.args.n_tokens, self.args.n_heads,
-                    tokenized_data.get_vocab_size()).to(device)
+                    self.tokenized_data.get_vocab_size()).to(device)
         model.train()
 
         criterion = nn.CrossEntropyLoss(reduction='mean').to(device)
@@ -122,31 +124,6 @@ class Training:
 
                 losses['train'].append(loss.item())
                 curr_iter += 1
-
-    def parse_args(self):
-        parser = argparse.ArgumentParser()
-        parser.add_argument(
-            "--batch_size", "-b", help=f"Batch size (default: {self.args.batch_size}).", type=int, default=self.args.batch_size,)
-        parser.add_argument(
-            "--n_tokens", "-n", help=f"Number of tokens (default: {self.args.n_tokens}).", type=int, default=self.args.n_tokens,)
-        parser.add_argument(
-            "--n_layers", "-l", help=f"Number of layers (default: {self.args.n_layers}).", type=int, default=self.args.layers,)
-        parser.add_argument(
-            "--n_heads", help=f"Number of heads (default: {self.args.n_heads}).", type=int, default=self.args.n_heads,)
-        parser.add_argument(
-            "--d_model", "-d", help=f"Dimension of model (default: {self.args.d_model}).", type=int, default=self.args.d_model,)
-        parser.add_argument("--lr", "-lr",
-                            help=f"Learning Rate (default: {self.args.lr}).", type=float, default=self.args.lr,)
-        parser.add_argument(
-            "--use_lr_decay", help=f"Use learning rate decay strategy (default: {self.args.use_lr_decay}).", type=bool, default=self.args.use_lr_decay,)
-        parser.add_argument(
-            "--dataset", help=f"Dataset file to use for training (default: {self.args.dataset_path}).", type=str, default=self.args.dataset_path,)
-        parser.add_argument(
-            "--max_iter", help=f"Maximum Number of iterations for training (default: {self.args.max_iter}).", type=int, default=self.args.max_iter,)
-        parser.add_argument(
-            "--out", help=f"Directory containing the saved models (default: {self.args.out_dir}).", type=str, default=self.args.out_dir,)
-
-        return parser.parse_args()
 
     def losses_graph(self, path: str = None, save: bool = False):
         plt.figure(figsize=(12, 8))
@@ -202,3 +179,13 @@ class Training:
         plt.legend()
         if save: plt.savefig(path)
         plt.show()
+
+if __name__ == '__main__':
+    args = Args.parse_args()
+    print(args)
+    train = Training(args)
+    model, metrics = train.train_model()
+    print(train.tokenized_data.decode(
+        generate(model, train.tokenized_data.encode("Oh God Oh God !"), 50)
+    ))
+    

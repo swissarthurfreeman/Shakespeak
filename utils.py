@@ -7,19 +7,19 @@ from torch.utils.data import Dataset
 from torch.utils.data.dataloader import DataLoader
 
 
-class Args(argparse.Namespace):
+class Args(argparse.Namespace): # TODO : delete this class.
     """
-    Helper bundle of parameters class. To be provided
-    to a Training object.
+    Helper bundle of parameters class. To be provided to a Training object.
     """
     def __init__(self, 
-                 batch_size, n_tokens, n_layers, n_heads, 
-                 d_model, use_lr_decay, lr, dataset_path, 
-                 max_iter, out_dir, n_warm_iters=100, 
+                 batch_size=10, n_tokens=64, n_layers=4, n_heads=4, 
+                 d_model=128, use_lr_decay=True, lr=1e-3, dataset_path="./datasets/shakespear_corpus.txt", 
+                 max_iter=100, out_dir=None, n_warm_iters=100, 
                  lr_decay_iter=5000, min_lr=1e-4, 
                  n_validation_batch=200, betas=(0.9, 0.99), 
                  n_epochs=10, val_int = 100
         ):
+        
         self.batch_size = batch_size
         """Number of (sentence, shifted) pairs per gradient step."""
         self.n_tokens = n_tokens
@@ -35,12 +35,12 @@ class Args(argparse.Namespace):
         self.lr = lr
         """Adam learning rate"""
         self.dataset_path: str  = dataset_path
+        """Path towards .txt file."""
         self.max_iter = max_iter
         """Maximum number of gradient updates."""
         self.out_dir = out_dir
         """Where to save metric results, plots."""
         self.n_warm_iters = n_warm_iters
-        """No of iter """
         self.lr_decay_iter = lr_decay_iter
         """No of iter during which lr will decay, lr=min_lr"""
         self.min_lr = min_lr
@@ -54,13 +54,86 @@ class Args(argparse.Namespace):
         self.val_int = val_int
         """Interval of iters to pass before computing val loss."""
 
+    @staticmethod
+    def parse_args() -> argparse.Namespace: 
+        default_args = Args()
+        parser = argparse.ArgumentParser()
+        # TODO : refactor to for loop
+        parser.add_argument("--batch_size", "-b", 
+                            help=f"Batch size (default: {default_args.batch_size}).", 
+                            type=int, default=default_args.batch_size,)
+        
+        parser.add_argument("--n_tokens", "-n", 
+                            help=f"Number of tokens (default: {default_args.n_tokens}).", 
+                            type=int, default=default_args.n_tokens,)
+        
+        parser.add_argument("--n_layers", "-l", help=f"Number of layers (default: {default_args.n_layers}).", 
+                            type=int, default=default_args.n_layers,)
+        
+        parser.add_argument("--n_heads", help=f"Number of heads (default: {default_args.n_heads}).", 
+                            type=int, default=default_args.n_heads,)
+        
+        parser.add_argument("--d_model", "-d", help=f"Dimension of model (default: {default_args.d_model}).", 
+                            type=int, default=default_args.d_model,)
+        
+        parser.add_argument("--lr", "-lr", help=f"Learning Rate (default: {default_args.lr}).", 
+                            type=float, default=default_args.lr,)
+        
+        parser.add_argument("--use_lr_decay", help=f'''Use learning rate decay strategy 
+                            (default: {default_args.use_lr_decay}).''', type=bool, 
+                            default=default_args.use_lr_decay,)
+        
+        parser.add_argument("--lr_decay_iter", help=f'''No of iter during which lr will decay 
+                            (default: {default_args.lr_decay_iter}).''', type=bool, 
+                            default=default_args.lr_decay_iter,)
+
+        parser.add_argument("--dataset_path", help=f'''Dataset file to use for 
+                            training (default: {default_args.dataset_path}).''', type=str, 
+                            default=default_args.dataset_path,)
+        
+        parser.add_argument("--max_iter", help=f'''Maximum Number of iterations for 
+                            training (default: {default_args.max_iter}).''', 
+                            type=int, default=default_args.max_iter,)
+        
+        parser.add_argument("--betas", nargs='?', help=f'''Adam moving average beta1, beta2 
+                            (default: {default_args.betas}).''', 
+                            type=tuple[float], default=default_args.betas,)
+
+        parser.add_argument("--n_epochs", nargs='?', help=f'''Number of times to iterate on dataset
+                    (default: {default_args.n_epochs}).''', 
+                    type=int, default=default_args.n_epochs,)
+        
+        parser.add_argument("--n_warm_iters", nargs='?', help=f'''Number of warmup iterations of lr schedule 
+                    (default: {default_args.n_warm_iters}).''', 
+                    type=int, default=default_args.n_warm_iters,)
+
+
+        parser.add_argument("--min_lr", nargs='?', help=f'''Minimum lr value 
+                    (default: {default_args.min_lr}).''', 
+                    type=int, default=default_args.min_lr,)
+
+        parser.add_argument("--n_validation_batch", nargs='?', help=f'''Batch size of 
+                    validation loss computation (default: {default_args.n_validation_batch}).''', 
+                    type=int, default=default_args.n_validation_batch,)
+
+        parser.add_argument("--val_int", nargs='?', help=f'''Interval of iters to pass 
+                    before computing val loss (default: {default_args.val_int}).''', 
+                    type=int, default=default_args.val_int,)
+
+        parser.add_argument("--out_dir", nargs='?', help=f'''Directory containing the saved 
+                            models (default: {default_args.out_dir}).''', type=str, 
+                            default=default_args.out_dir,)
+
+        return parser.parse_args()     # this will contain all Args type values
+
+
 class CharDataSet(Dataset):
     """
     Helper class to emits batches of characters. Implements an a __getitem__() method, which 
     allows subscripting by i, where CharDataSet[i] yields a tuple with the i-th sliding window 
     and the i+1-th window on the data.
     """
-    def __init__(self, N_tokens: int, fold: int = None, k_fold: int = None, path: str = None, is_training: bool = True, raw_data: str = None, p_train: int=0.9):
+    def __init__(self, N_tokens: int, fold: int = None, k_fold: int = None, dataset_path: str = None, is_training: bool = True, raw_data: str = None, p_train: int=0.9):
         """Instantiate a char dataset, if raw_data is provided, the fulltext is assumed to be raw_data, if not
         the file pointed to by path is opened and it's lines read. If is_training is True, __getitem__() will
         yield training dataset tuples, otherwise they will be validation dataset tuples. p_train is the percentage
@@ -72,9 +145,9 @@ class CharDataSet(Dataset):
         
         data_indices: Tensor = None
         if raw_data == None:                                        # if no raw_data, load from path.
-            self.raw_data: str = load_data(path)
-            if os.path.isfile(path + '.npy'):
-                data_indices = torch.from_numpy(np.load(path + '.npy').flatten())
+            self.raw_data: str = load_data(dataset_path)
+            if os.path.isfile(dataset_path + '.npy'):
+                data_indices = torch.from_numpy(np.load(dataset_path + '.npy').flatten())
         else:
             self.raw_data: str = raw_data
             
@@ -86,8 +159,8 @@ class CharDataSet(Dataset):
 
         if data_indices == None:                                    # raw_data was not provided
             data_indices = self.encode(self.raw_data).flatten()     # always flatten
-            if path != None:
-                np.save(path, arr=data_indices)                     # e.g. path provided .txt file exists but no .npy file exists 
+            if dataset_path != None:
+                np.save(dataset_path, arr=data_indices)                     # e.g. path provided .txt file exists but no .npy file exists 
 
         # drop last characters to have multiple of N_tokens
         data_indices = data_indices[:(len(data_indices)-(len(data_indices) % N_tokens))+1]
@@ -170,8 +243,8 @@ def encodeDataset(path):
     np.save(path, arr=idx)
 
 
-def getLoaderDataset(N, B, path, fold, k_fold, is_training=True, shuffle=True):
-    tokenized_data = CharDataSet(N, fold, k_fold, path, is_training)
+def getLoaderDataset(N, B, dataset_path, fold, k_fold, is_training=True, shuffle=True):
+    tokenized_data = CharDataSet(N, fold, k_fold, dataset_path, is_training)
     data_loader = DataLoader(
         tokenized_data,
         shuffle=shuffle,
