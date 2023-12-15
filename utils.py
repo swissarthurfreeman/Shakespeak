@@ -304,7 +304,7 @@ def generate(model, idx, max_new_tokens):
         input = torch.concat((input, new_c), dim=-1)
     return input.flatten()
 
-def cv_losses_graph(train_loss: Tensor, val_loss: Tensor, val_int: str, path: str = None, save: bool = False):
+def cv_losses_graph(train_loss: Tensor, val_loss: Tensor, val_int: str, path: str = None, save: bool = False, name: str = None):
     """
     Plot cross-validation train/validation losses w.r.t batch index.
     Plots variance areas over folds. 
@@ -331,7 +331,7 @@ def cv_losses_graph(train_loss: Tensor, val_loss: Tensor, val_int: str, path: st
     plt.ylabel('Cross-Entropy Loss')
     plt.title('Training and Validation Loss w.r.t. Batch Index.')
     plt.legend()
-    if save: plt.savefig(path)
+    if save: plt.savefig(path+name)
     plt.show()
 
 def perplexity_graph(val_loss: Tensor, train_loss: Tensor, val_int: int, path: str = None, save: bool = False):
