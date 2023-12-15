@@ -1,45 +1,49 @@
 import time
-import numpy as np
 import torch
-from torch import nn
 import argparse
+import numpy as np
+from torch import nn
 from torch import Tensor
 from torch.utils.data import Dataset
 from torch.utils.data.dataloader import DataLoader
 
 
 class Args(argparse.Namespace):
-    def __init__(self, batch_size, n_tokens, n_layers, n_heads, d_model, use_lr_decay, learning_rate, dataset, max_iterations, out_dir):
+    def __init__(self, batch_size, n_tokens, n_layers, n_heads, d_model, use_lr_decay, lr, dataset_path, max_iter, out_dir):
         self.batch_size = batch_size
+        """Number of sentence shift pairs to consider per gradient step."""
         self.n_tokens = n_tokens
+        """Size of context/attention window"""
         self.n_layers = n_layers
+        """Number of stacked blocks in the Transformer"""
         self.n_heads = n_heads
+        """Number of attention heads"""
         self.d_model = d_model
+        """Embeddings dimension"""
         self.use_lr_decay = use_lr_decay
-        self.learning_rate = learning_rate
-        self.dataset = dataset
-        self.max_iterations = max_iterations
+        """Wether to use Attention is All you need lr schedule."""
+        self.lr = lr
+        """Adam learning rate"""
+        self.dataset_path: str  = dataset_path
+        self.max_iter = max_iter
+        """Maximum number of gradient updates."""
         self.out_dir = out_dir
-        
-class LoadedModel(nn.Module):
-    def __init__(self, checkpoint_path, model):
-        super(LoadedModel, self).__init__()
-        
-        # Load the model weights from the checkpoint
-        checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
-        model.load_state_dict(checkpoint)
-        
-        # Set the model attribute
-        self.model = model
-
-    def forward(self, x):
-        pass
-        # Define the forward pass of your model
-        # ...
-        
-    def get_model(self):
-        return self.model
-
+        """Where to save metric results, plots."""
+        self.n_warm_iters = 100
+        """No of iter """
+        self.lr_decay_iter = 5000
+        """No of iter during which lr will decay, lr=min_lr"""
+        self.min_lr = 1e-4
+        """Minimum value of lr"""
+        self.n_validation_batch = 200   
+        """No of samples of val set to compute val loss on."""
+        self.betas = (0.9, 0.99)
+        """Adam gradient gradient averaging parameters"""
+        self.eps = 10e-9
+        self.n_epochs = 10
+        """Number of times to iterate on dataset."""
+        self.val_int = 100
+        """Interval of iters to pass before computing val loss."""
 
 class CharDataSet(Dataset):
     """
@@ -80,9 +84,8 @@ class CharDataSet(Dataset):
         train_indices = train_left_indices + train_right_indices
         val_indices = list(range(val_start, val_end))
         
-        self.train_chunks = chunks[train_indices]
-        self.validation_chunks = chunks[val_indices]
-        
+        self.train_chunks = chunks[train_indices]       # if is training, return this
+        self.validation_chunks = chunks[val_indices]    # else, return the validation chunk
 
     def get_vocab_size(self):
         return len(self.vocabulary)
@@ -99,7 +102,6 @@ class CharDataSet(Dataset):
         shifted version as tensors.
         """
         chunks = self.train_chunks if self.is_training else self.validation_chunks
-        # (N_token,), (N_token,) tuple.
         return chunks[idx:idx+self.N_tokens], chunks[idx+1:idx+1+self.N_tokens]
 
     def encode(self, text: str) -> Tensor:
@@ -164,12 +166,3 @@ def generate(model, idx, max_new_tokens):
         input = torch.concat((input, new_c), dim=-1)
     return input.flatten()
 
-
-if __name__ == '__main__':
-    path = './datasets/shakespear_corpus.txt'
-    loader, dataset = getLoaderDataset(N=256, B=10, path=path)
-
-    for batch_idx, (inputs, targets) in enumerate(loader):
-        print(dataset.decode(inputs[0][:10]), "|",
-              dataset.decode(targets[0][:10]))
-        break
