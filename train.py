@@ -74,12 +74,12 @@ class Training:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         training_data_loader, tokenized_data = getLoaderDataset(
-            self.args.n_tokens, self.args.batch_size, self.args.dataset_path, 
-            fold, k_fold, is_training=True, shuffle=True)
+            N=self.args.n_tokens, B=self.args.batch_size, path=self.args.dataset_path, 
+            fold=fold, k_fold=k_fold, is_training=True, shuffle=True)
         
         validation_data_loader, _ = getLoaderDataset(
-            self.args.n_tokens, self.args.batch_size, self.args.dataset_path, 
-            fold, k_fold, is_training=False, shuffle=True)
+            N=self.args.n_tokens, B=self.args.batch_size, path=self.args.dataset_path, 
+            fold=fold, k_fold=k_fold, is_training=False, shuffle=True)
 
         losses = {'train': [],'validation': []}
         model = GPT(self.args.batch_size, self.args.n_layers, self.args.d_model, 3*self.args.d_model, self.args.n_tokens, self.args.n_heads,

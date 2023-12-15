@@ -152,6 +152,7 @@ class CharDataSet(Dataset):
         return ''.join(chars)
 
 def load_data(path):
+    print(path)
     with open(path, 'r') as file:
         data = "".join(file.readlines())
     return data
@@ -170,7 +171,7 @@ def encodeDataset(path):
 
 
 def getLoaderDataset(N, B, path, fold, k_fold, is_training=True, shuffle=True):
-    tokenized_data = CharDataSet(N, path, fold, k_fold, is_training)
+    tokenized_data = CharDataSet(N, fold, k_fold, path, is_training)
     data_loader = DataLoader(
         tokenized_data,
         shuffle=shuffle,
