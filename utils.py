@@ -1,17 +1,26 @@
-import time
 import torch
 import argparse
 import numpy as np
-from torch import nn
 from torch import Tensor
 from torch.utils.data import Dataset
 from torch.utils.data.dataloader import DataLoader
 
 
 class Args(argparse.Namespace):
-    def __init__(self, batch_size, n_tokens, n_layers, n_heads, d_model, use_lr_decay, lr, dataset_path, max_iter, out_dir):
+    """
+    Helper bundle of parameters class. To be provided
+    to a Training object.
+    """
+    def __init__(self, 
+                 batch_size, n_tokens, n_layers, n_heads, 
+                 d_model, use_lr_decay, lr, dataset_path, 
+                 max_iter, out_dir, n_warm_iters=100, 
+                 lr_decay_iter=5000, min_lr=1e-4, 
+                 n_validation_batch=200, betas=(0.9, 0.99), 
+                 n_epochs=10, val_int = 100
+        ):
         self.batch_size = batch_size
-        """Number of sentence shift pairs to consider per gradient step."""
+        """Number of (sentence, shifted) pairs per gradient step."""
         self.n_tokens = n_tokens
         """Size of context/attention window"""
         self.n_layers = n_layers
@@ -29,20 +38,19 @@ class Args(argparse.Namespace):
         """Maximum number of gradient updates."""
         self.out_dir = out_dir
         """Where to save metric results, plots."""
-        self.n_warm_iters = 100
+        self.n_warm_iters = n_warm_iters
         """No of iter """
-        self.lr_decay_iter = 5000
+        self.lr_decay_iter = lr_decay_iter
         """No of iter during which lr will decay, lr=min_lr"""
-        self.min_lr = 1e-4
+        self.min_lr = min_lr
         """Minimum value of lr"""
-        self.n_validation_batch = 200   
+        self.n_validation_batch = n_validation_batch   
         """No of samples of val set to compute val loss on."""
-        self.betas = (0.9, 0.99)
+        self.betas = betas
         """Adam gradient gradient averaging parameters"""
-        self.eps = 10e-9
-        self.n_epochs = 10
+        self.n_epochs = n_epochs
         """Number of times to iterate on dataset."""
-        self.val_int = 100
+        self.val_int = val_int
         """Interval of iters to pass before computing val loss."""
 
 class CharDataSet(Dataset):
