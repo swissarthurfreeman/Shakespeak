@@ -1,6 +1,7 @@
 import re
 import math
 import random
+import numpy as np
 import matplotlib.pyplot as plt
 
 
@@ -20,8 +21,55 @@ class BigramLanguageModel:
         
     def get_vocab(self):
         return set(self.characters)
+    
+    def cross_validation(self, k_folds = 10):
+        # Evaluation params
+        loss_train_list = []
+        perplexity_train_list = []
+        loss_validation_list = []
+        perplexity_validation_list = []
+        
+        fold_size = int(self.nb_characters / k_folds)
+        for i in range(k_folds):
+            validation_stard_index = i * fold_size
+            validation_end_index = (i + 1) * fold_size
+            # Border condition
+            if((i+1) == k_folds ):
+                validation_end_index = len(self.characters)-1 # final index of dataset
+            self.train_characters = self.characters[0:validation_end_index] + self.characters[validation_end_index:]
+            self.validation_characters = self.characters[validation_stard_index:validation_end_index]
+            print("Validation indices : ", validation_stard_index, " to ", validation_end_index)
+            print("train indices : 0 to ", validation_stard_index, " and ", validation_end_index, " to ", len(self.characters)-1)
+            self.train()
+            train_results = self.evaluate_train()
+            validation_results = self.evaluate_validation()
+            loss_train_list.append(train_results[0])
+            perplexity_train_list.append(train_results[1])
+            loss_validation_list.append(validation_results[0])
+            perplexity_validation_list.append(validation_results[1])
+        #print(loss_train_list)
+        #print(perplexity_train_list)
+        #print(loss_validation_list)
+        #print(perplexity_validation_list)
+        
+        # Compute mean and var for train
+        loss_train_mean = np.mean(np.array(loss_train_list))
+        loss_train_var = np.var(np.array(loss_train_list))
+        perplexity_train_mean = np.mean(np.array(perplexity_train_list))
+        perplexity_train_var = np.var(np.array(perplexity_train_list))
+        
+        # Compute mean and var for validation
+        loss_validation_mean = np.mean(np.array(loss_validation_list))
+        loss_validation_var = np.var(np.array(loss_validation_list))
+        perplexity_validation_mean = np.mean(np.array(perplexity_validation_list))
+        perplexity_validation_var = np.var(np.array(perplexity_validation_list))
+        
+        return loss_train_mean, loss_train_var, perplexity_train_mean, perplexity_train_var, loss_validation_mean, loss_validation_var, perplexity_validation_mean, perplexity_validation_var
+
+        
 
     def train(self):
+        self.bgrams = {}
         for i in range(len(self.train_characters)-2):
             w1 = self.train_characters[i]
             w2 = self.train_characters[i+1]
@@ -37,7 +85,7 @@ class BigramLanguageModel:
             total = sum(self.bgrams[c].values()) # sum all the count
             self.bgrams[c] = dict([(k, self.bgrams[c][k]/total) for k in self.bgrams[c]]) # compute relative frequency
             
-    def evaluate_train(self) -> [float, float]:
+    def evaluate_train(self) -> [float, float]: # loss, perplexity
         # Training evlauation
         total_loss = 0
         total_pairs = len(self.train_characters) - 1
@@ -61,7 +109,7 @@ class BigramLanguageModel:
         perplexity = math.pow(2,loss)
         return loss, perplexity
     
-    def evaluate_validation(self) -> [float, float]:
+    def evaluate_validation(self) -> [float, float]: # loss, perplexity
         # Validation evaluation
         total_loss = 0
         total_pairs = len(self.validation_characters) - 1
@@ -84,36 +132,6 @@ class BigramLanguageModel:
         # Calculer la perplexité
         perplexity = math.pow(2,loss)
         return loss, perplexity
-    
-    def save_losses_graph(self, path, losses):
-        plt.clf()
-
-        plt.plot(range(len(losses['train'])), losses['train'], label='Training_mean')
-        plt.fill_between(range(len(losses['train'])), losses['train'] - losses['train_var'], losses['train'] + losses['train_var'], alpha=0.3, label='Variance Area for train')
-        
-        plt.plot(range(0, len(losses['train']), self.validation_interval), losses['validation'], label='Validation_mean')
-        plt.fill_between(range(0, len(losses['train']), self.validation_interval), losses['validation'] - losses['validation_var'], losses['validation'] + losses['validation_var'], alpha=0.3, label='Variance Area for validation')
-        plt.xlabel('Number of batches')
-        plt.ylabel('Loss')
-        plt.title('Training and Validation Loss Over number of batches')
-        plt.legend()
-        plt.savefig(path)
-        plt.show()
-
-
-    def save_perplexity_graph(self, path, perplexities):
-        plt.clf()
-        plt.plot(range(len(perplexities['train'])), perplexities['train'], label='Training_mean')
-        plt.fill_between(range(len(perplexities['train'])), perplexities['train'] - perplexities['train_var'], perplexities['train'] + perplexities['train_var'], alpha=0.3, label='Variance Area for train')
-        
-        plt.plot(range(0, len(perplexities['train']), self.validation_interval), perplexities['validation'], label='Validation_mean')
-        plt.fill_between(range(0, len(perplexities['train']), self.validation_interval), perplexities['validation'] - perplexities['validation_var'], perplexities['validation'] + perplexities['validation_var'], alpha=0.3, label='Variance Area for validation')
-        plt.xlabel('Number of batches')
-        plt.ylabel('Perplexity')
-        plt.title('Training and Validation Perplexity Over number of batches')
-        plt.legend()
-        plt.savefig(path)
-        plt.show()
         
 
     def next_char(self, char):
