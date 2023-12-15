@@ -60,7 +60,7 @@ class CharDataSet(Dataset):
     allows subscripting by i, where CharDataSet[i] yields a tuple with the i-th sliding window 
     and the i+1-th window on the data.
     """
-    def __init__(self, N_tokens: int, fold: int, k_fold: int, path: str = None, is_training: bool = True, raw_data: str = None, p_train: int=0.9):
+    def __init__(self, N_tokens: int, fold: int = None, k_fold: int = None, path: str = None, is_training: bool = True, raw_data: str = None, p_train: int=0.9):
         """Instantiate a char dataset, if raw_data is provided, the fulltext is assumed to be raw_data, if not
         the file pointed to by path is opened and it's lines read. If is_training is True, __getitem__() will
         yield training dataset tuples, otherwise they will be validation dataset tuples. p_train is the percentage
@@ -92,23 +92,29 @@ class CharDataSet(Dataset):
         # drop last characters to have multiple of N_tokens
         data_indices = data_indices[:(len(data_indices)-(len(data_indices) % N_tokens))+1]
 
-        # cross validation will segment |train0|train1|...|test|train_i|...|train_n, n = len(chunks)/k_fold
-        fraction = 1/k_fold                           # test chunk is somewhere in the middle of the train data
-        length_test = int(len(data_indices) * fraction)     # it is from character [val_start, val_end] of length seg.
+        if fold != None and k_fold != None:
+            # cross validation will segment |train0|train1|...|test|train_i|...|train_n, n = len(chunks)/k_fold
+            fraction = 1/k_fold                           # test chunk is somewhere in the middle of the train data
+            length_test = int(len(data_indices) * fraction)     # it is from character [val_start, val_end] of length seg.
 
-        val_start = fold * length_test                # val_start is index of start of validation chunk, NOTE : this is not test data per say, as model
-        val_end = val_start + length_test             # selection will be done on it. Test performance is done on data the model has NEVER encountered
-                                                      # and hence has NEVER influenced the model.
-        print("train indices: [%d,%d),[%d,%d), test indices: [%d,%d)" % (0, val_start, val_end, len(data_indices), val_start, val_end))   
-        
-        train_left_indices = list(range(val_start))
-        train_right_indices = list(range(val_end, len(data_indices)))
-        
-        train_indices = train_left_indices + train_right_indices
-        val_indices = list(range(val_start, val_end))
-        
-        self.train_chunks = data_indices[train_indices]
-        self.validation_chunks = data_indices[val_indices]           
+            val_start = fold * length_test                # val_start is index of start of validation chunk, NOTE : this is not test data per say, as model
+            val_end = val_start + length_test             # selection will be done on it. Test performance is done on data the model has NEVER encountered
+                                                        # and hence has NEVER influenced the model.
+            print("train indices: [%d,%d),[%d,%d), test indices: [%d,%d)" % (0, val_start, val_end, len(data_indices), val_start, val_end))   
+            
+            train_left_indices = list(range(val_start))
+            train_right_indices = list(range(val_end, len(data_indices)))
+            
+            train_indices = train_left_indices + train_right_indices
+            val_indices = list(range(val_start, val_end))
+            
+            self.train_chunks = data_indices[train_indices]
+            self.validation_chunks = data_indices[val_indices]  
+        else:
+            n = len(data_indices)
+            self.train_chunks = data_indices[:int(n*0.9)]
+            self.validation_chunks = data_indices[int(n*0.9):]
+
                                
     def get_vocab_size(self):
         return len(self.vocabulary)
