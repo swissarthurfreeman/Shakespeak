@@ -3,6 +3,7 @@ import torch
 import argparse
 import numpy as np
 from torch import Tensor
+import matplotlib.pyplot as plt
 from torch.utils.data import Dataset
 from torch.utils.data.dataloader import DataLoader
 
@@ -19,7 +20,8 @@ class Args(argparse.Namespace):
                  max_iter=100, out_dir="./runs/", n_warm_iters=100, 
                  lr_decay_iter=5000, min_lr=1e-4, 
                  n_validation_batch=200, betas=(0.9, 0.99), 
-                 n_epochs=10, val_int = 100, save=True, save_int=200, name="milkshake"
+                 n_epochs=10, val_int = 100, save=True, save_int=200, name="milkshake",
+                 cross_val=False, k_fold=10,
         ):
         
         self.batch_size = batch_size
@@ -61,6 +63,10 @@ class Args(argparse.Namespace):
         """No of ints before saving model state to file"""
         self.name = name
         """Name of the model / run """
+        self.cross_val = cross_val
+        """Wether to run cross-validation or not."""
+        self.k_fold = k_fold
+        """Number of k-folds."""
 
     @staticmethod
     def parse_args() -> argparse.Namespace: 
@@ -135,14 +141,23 @@ class Args(argparse.Namespace):
                             (default: {default_args.name}).''', type=str, 
                             default=default_args.name,)
         
-        parser.add_argument("--save_int", nargs='?', help=f'''No of ints before saving model state to file 
+        parser.add_argument("--save_int", nargs='?', help=f'''No of ints before saving model state to file. BEWARE ! Large
+                            models can be HUNDREDS OF MEGABYTES large, so saving every 10 iterations will fill your drive. 
                             (default: {default_args.save_int}).''', type=int, 
                             default=default_args.save_int,)
 
         parser.add_argument("--save", nargs='?', help=f'''Wether to save the model every save_int steps 
                             (default: {default_args.save}).''', type=bool, 
                             default=default_args.save,)
+        
+        parser.add_argument("--cross_val", nargs='?', help=f'''Run cross-validation  
+                            (default: {default_args.cross_val}).''', type=bool, 
+                            default=default_args.cross_val,)
 
+        parser.add_argument("--k_fold", nargs='?', help=f'''Number of k-folds  
+                            (default: {default_args.k_fold}).''', type=int, 
+                            default=default_args.k_fold,)
+        
         return parser.parse_args()     # this will contain all Args type values
 
 
@@ -289,3 +304,65 @@ def generate(model, idx, max_new_tokens):
         input = torch.concat((input, new_c), dim=-1)
     return input.flatten()
 
+def cv_losses_graph(train_loss: Tensor, val_loss: Tensor, val_int: str, path: str = None, save: bool = False):
+    """
+    Plot cross-validation train/validation losses w.r.t batch index.
+    Plots variance areas over folds. 
+    """
+    plt.figure(figsize=(12, 8))
+    plt.grid(True)
+    train_mean = train_loss.mean(dim=0)    # (k-fold, n_steps) -> (1 x n_steps)
+    val_mean = val_loss.mean(dim=0)
+    plt.plot(range(train_mean.size(0)), train_mean, label='Train Mean')
+    plt.fill_between(
+        range(train_mean.size(0)),
+        train_mean - torch.std(train_loss, dim=0),
+        train_mean + torch.std(train_loss, dim=0),
+        alpha=0.3, label='Training Variance')
+    
+    plt.plot(torch.arange(1, val_mean.size(0) + 1) * val_int, val_mean, label='Validation_mean')
+    plt.fill_between(
+        torch.arange(1, val_mean.size(0) + 1) * val_int, 
+        val_mean - torch.std(val_loss, dim=0),
+        val_mean + torch.std(val_loss, dim=0),
+        alpha=0.3, label='Validation Deviation')
+    
+    plt.xlabel('Batch idx')
+    plt.ylabel('Cross-Entropy Loss')
+    plt.title('Training and Validation Loss w.r.t. Batch Index.')
+    plt.legend()
+    if save: plt.savefig(path)
+    plt.show()
+
+def perplexity_graph(val_loss: Tensor, train_loss: Tensor, val_int: int, path: str = None, save: bool = False):
+    """
+    Plot cross-validation train/validation perplexities w.r.t batch index.
+    Plots variance areas over folds.
+    """
+    plt.figure(figsize=(12, 8))
+    plt.grid(True)
+    val_perplex = 2**val_loss     # (k-fold x n_steps)
+    train_perplex = 2**train_loss
+    val_perplex_mean = val_perplex.mean(dim=0)
+    train_perplex_mean = train_perplex.mean(dim=0)
+
+    plt.plot(range(train_perplex_mean.size(0)), train_perplex_mean, label='Train Mean')
+    plt.fill_between(
+        range(train_perplex_mean.size(0)),
+        train_perplex_mean - torch.std(train_perplex, dim=0),
+        train_perplex_mean + torch.std(train_perplex, dim=0),
+        alpha=0.3, label='Training Variance')
+    
+    plt.plot(torch.arange(1, val_perplex_mean.size(0) + 1) * val_int, val_perplex_mean, label='Validation Mean')
+    plt.fill_between(
+        torch.arange(1, val_perplex_mean.size(0) + 1) * val_int, 
+        val_perplex_mean - torch.std(val_perplex, dim=0),
+        val_perplex_mean + torch.std(val_perplex, dim=0),
+        alpha=0.3, label='Validation Deviation')
+    
+    plt.xlabel('Batch idx')
+    plt.ylabel('Perplexity')
+    plt.title('Training and Validation Perplexity w.r.t. Batch Index.')
+    plt.legend()
+    if save: plt.savefig(path)
+    plt.show()

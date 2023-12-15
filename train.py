@@ -19,9 +19,11 @@ class Training:
     def __init__(self, args: argparse.Namespace):
         self.args = args
         self.train_loss: Tensor = Tensor()
-        """Vector of ce_loss at every grad update of all folds on train."""
+        """Matrix (k-fold, n_step) of ce_loss at every grad update of all folds on train.
+        Will be size (n_step,) if cross-validation is False."""
         self.val_loss: Tensor = Tensor()
-        """Vector of ce_loss at every grad update of all folds on validation."""
+        """Matrix (k-fold, n_step) of ce_loss at every grad update of all folds on validation.
+        Will be size (n_step,) if cross-validation is False."""
         self.tokenized_data = None
 
     def calculate_lr(self, iteration: int) -> float:
@@ -49,42 +51,65 @@ class Training:
         model.train()
         return losses.mean()
 
-    def cross_validation(self, k_fold: int = 10) -> tuple[list[GPT], Tensor, Tensor]:
+    def cross_validation(self) -> tuple[list[GPT], Tensor, Tensor]:
         """
         Returns of a tuple of lists of size k_fold. out1[k] is the k-th "fold" 
         trained GPT model, out2 is the matrix of cross entropy values on the train
         data (k-fold x n°steps) and out3 is the validation loss matrix (k-fold x n°steps % val_int).
         """
         models = []
-        train_loss = []
-        val_loss = []
-        for i in range(k_fold):
+        kfolds_train_losses = []
+        kfolds_val_losses = []
+        for i in range(self.args.k_fold):
             print("---------------------------------\nFold n°%s" % i)
-            model, fold_metrics = self.train_model(fold=i)
+            model, train_loss, val_loss = self._train_model(fold=i)
             models.append(model)
-            train_loss.append(fold_metrics['train'])
-            val_loss.append(fold_metrics['validation'])
+            kfolds_train_losses.append(train_loss)
+            kfolds_val_losses.append(val_loss)
         
-        self.train_loss = Tensor(train_loss)
+        print(len(kfolds_train_losses))
+        print(len(kfolds_train_losses[0]), len(kfolds_train_losses[4]))
+        self.train_loss = torch.stack(kfolds_train_losses)
         """Matrix (k-fold x n°steps) of ce_loss at every grad update of all folds on train"""
-        self.val_loss = Tensor(val_loss)
+        self.val_loss = torch.stack(kfolds_val_losses)
         """Matrix (k-fold x n°steps) of ce_loss at every grad update of all folds on validation."""
+        torch.save(
+            {'k_fold_train_loss': self.train_loss, 'k_fold_valid_loss': self.val_loss, 'params': vars(self.args)}, 
+            f"./runs/{self.args.name}/total_cross_val_metrics.pt"
+        )
         return models, self.train_loss, self.val_loss
 
-    def train_model(self, fold=None, k_fold=None) -> tuple[GPT, dict[str, list]]:
-        """Leave fold, k_fold as None if we're not doing cross validation. In which
-        case DataLoader will split data into 90% train and 10% validation."""
+    def train(self, fold=None, k_fold=None):
+        if self.args.cross_val:
+            return self.cross_validation()
+        else:
+            return self._train_model(fold)
+
+    def _train_model(self, fold=None) -> tuple[GPT, Tensor, Tensor]:
+        """
+        Train a GPT model using self.args and return the model, the vector of train
+        losses at every step and the vector of validation losses at every val_int.
+        Leave fold as None if we're not doing cross validation. 
+        
+        Parameters
+        ----------
+        - fold : int | None
+        If left to None, the data loaders will simply split the dataset in 90% train and
+        10% validation in the usual way. If true, the data loader will select validation
+        data from the specified fold, and train data from everywhere else. 
+        """
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         training_data_loader, self.tokenized_data = getLoaderDataset(
             N=self.args.n_tokens, B=self.args.batch_size, dataset_path=self.args.dataset_path, 
-            fold=fold, k_fold=k_fold, is_training=True, shuffle=True)
+            fold=fold, k_fold=self.args.k_fold, is_training=True, shuffle=True)
         
         validation_data_loader, _ = getLoaderDataset(
             N=self.args.n_tokens, B=self.args.batch_size, dataset_path=self.args.dataset_path, 
-            fold=fold, k_fold=k_fold, is_training=False, shuffle=True)
+            fold=fold, k_fold=self.args.k_fold, is_training=False, shuffle=True)
 
-        losses = {'train': [],'validation': []}
+        train_loss = []
+        valid_loss = []
         model = GPT(self.args.batch_size, self.args.n_layers, self.args.d_model, 3*self.args.d_model, self.args.n_tokens, self.args.n_heads,
                     self.tokenized_data.get_vocab_size()).to(device)
         model.train()
@@ -115,83 +140,42 @@ class Training:
 
                 if curr_iter % self.args.val_int == 0:   # every val_int, compute val loss.
                     validation_loss = self.evaluate_model(model, validation_data_loader, criterion).item()
-                    losses['validation'].append(validation_loss)
+                    valid_loss.append(validation_loss)
                     print(f'Epoch: {epoch}, Batch index {curr_iter}, Training Loss: {"{:.4f}".format(loss.item())}, Validation Loss: {"{:.4f}".format(validation_loss)}')
                     
                 if self.args.save and curr_iter % self.args.save_int == 0:
-                    ckpt = {'model': model.state_dict(), 'params': vars(self.args)}
+                    ckpt = {        # saving all this allows rebuilding plots etc as needed.
+                        'model': model.state_dict(), 
+                        'valid_loss': Tensor(valid_loss),
+                        'train_loss': Tensor(train_loss),
+                        'params': vars(self.args)
+                    }
+
                     if not os.path.isdir(f"./runs/{self.args.name}"):
                         os.makedirs(f"./runs/{self.args.name}")
                     
-                    torch.save(ckpt, f"./runs/{self.args.name}/{self.args.name}_{epoch}_{curr_iter}.pt")
-                    
+                    if self.args.cross_val: # if this is a cross validation run, make sure to include fold number. 
+                        torch.save(ckpt, f"./runs/{self.args.name}/cross_val_{fold}_{self.args.name}_{epoch}_{curr_iter}.pt")
+                    else:
+                        torch.save(ckpt, f"./runs/{self.args.name}/{self.args.name}_{epoch}_{curr_iter}.pt")
+
                 if curr_iter > self.args.max_iter:
-                    return model, losses
+                    return model, Tensor(train_loss), Tensor(valid_loss)
 
-                losses['train'].append(loss.item())
+                train_loss.append(loss.item())
                 curr_iter += 1
-
-    def losses_graph(self, path: str = None, save: bool = False):
-        plt.figure(figsize=(12, 8))
-        plt.grid(True)
-        train_mean = self.train_loss.mean(dim=0)    # (k-fold, n_steps) -> (1 x n_steps)
-        val_mean = self.val_loss.mean(dim=0)
-        plt.plot(range(train_mean.size(0)), train_mean, label='Train Mean')
-        plt.fill_between(
-            range(train_mean.size(0)),
-            train_mean - torch.std(self.train_loss, dim=0),
-            train_mean + torch.std(self.train_loss, dim=0),
-            alpha=0.3, label='Training Variance')
-        
-        plt.plot(torch.arange(1, val_mean.size(0) + 1) * self.args.val_int, val_mean, label='Validation_mean')
-        plt.fill_between(
-            torch.arange(1, val_mean.size(0) + 1) * self.args.val_int, 
-            val_mean - torch.std(self.val_loss, dim=0),
-            val_mean + torch.std(self.val_loss, dim=0),
-            alpha=0.3, label='Validation Deviation')
-        
-        plt.xlabel('Batch idx')
-        plt.ylabel('Cross-Entropy Loss')
-        plt.title('Training and Validation Loss w.r.t. Batch Index.')
-        plt.legend()
-        if save: plt.savefig(path)
-        plt.show()
-
-    def perplexity_graph(self, path: str = None, save: bool = False):
-        plt.figure(figsize=(12, 8))
-        plt.grid(True)
-        val_perplex = 2**self.val_loss     # (k-fold x n_steps)
-        train_perplex = 2**self.train_loss
-        val_perplex_mean = val_perplex.mean(dim=0)
-        train_perplex_mean = train_perplex.mean(dim=0)
-
-        plt.plot(range(train_perplex_mean.size(0)), train_perplex_mean, label='Train Mean')
-        plt.fill_between(
-            range(train_perplex_mean.size(0)),
-            train_perplex_mean - torch.std(train_perplex, dim=0),
-            train_perplex_mean + torch.std(train_perplex, dim=0),
-            alpha=0.3, label='Training Variance')
-        
-        plt.plot(torch.arange(1, val_perplex_mean.size(0) + 1) * self.args.val_int, val_perplex_mean, label='Validation Mean')
-        plt.fill_between(
-            torch.arange(1, val_perplex_mean.size(0) + 1) * self.args.val_int, 
-            val_perplex_mean - torch.std(val_perplex, dim=0),
-            val_perplex_mean + torch.std(val_perplex, dim=0),
-            alpha=0.3, label='Validation Deviation')
-        
-        plt.xlabel('Batch idx')
-        plt.ylabel('Perplexity')
-        plt.title('Training and Validation Perplexity w.r.t. Batch Index.')
-        plt.legend()
-        if save: plt.savefig(path)
-        plt.show()
 
 if __name__ == '__main__':
     args = Args.parse_args()
     print(args)
     train = Training(args)
-    model, metrics = train.train_model()
-    print(train.tokenized_data.decode(
-        generate(model, train.tokenized_data.encode("Oh God Oh God !"), 50)
-    ))
+    models, train_loss, val_loss = train.train()
+    if args.cross_val:
+        for i, model in enumerate(models):
+            print("Fold n°%s model generation, with prompt Oh God Oh God ! \n ------------------------------------" % i)
+            print(train.tokenized_data.decode(
+                generate(model, train.tokenized_data.encode("Oh God Oh God !"), 50)
+            ))
+            print("------------------------------------")
+            
     
