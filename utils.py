@@ -7,9 +7,11 @@ from torch.utils.data import Dataset
 from torch.utils.data.dataloader import DataLoader
 
 
-class Args(argparse.Namespace): # TODO : delete this class.
+class Args(argparse.Namespace): 
     """
-    Helper bundle of parameters class. To be provided to a Training object.
+    Helper bundle of parameters class. 
+    Allows passing parameters from jupyter notebook.
+    To be provided to a Training object.
     """
     def __init__(self, 
                  batch_size=10, n_tokens=64, n_layers=4, n_heads=4, 
