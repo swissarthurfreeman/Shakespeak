@@ -117,7 +117,7 @@ class Training:
         criterion = nn.CrossEntropyLoss(reduction='mean').to(device)
         optimizer = optim.Adam(model.parameters(), lr=self.args.lr, betas=self.args.betas)
         
-        curr_iter = 1   # count from 1
+        curr_iter = 0   # count from 1
         for epoch in range(self.args.n_epochs):
             for batch_idx, (inputs, targets) in enumerate(training_data_loader):
                 lr = self.calculate_lr(
@@ -143,7 +143,7 @@ class Training:
                     valid_loss.append(validation_loss)
                     print(f'Epoch: {epoch}, Batch index {curr_iter}, Training Loss: {"{:.4f}".format(loss.item())}, Validation Loss: {"{:.4f}".format(validation_loss)}')
                     
-                if self.args.save and curr_iter % self.args.save_int == 0:
+                if self.args.save and curr_iter != 0 and curr_iter % self.args.save_int == 0:
                     ckpt = {        # saving all this allows rebuilding plots etc as needed.
                         'model': model.state_dict(), 
                         'valid_loss': Tensor(valid_loss),

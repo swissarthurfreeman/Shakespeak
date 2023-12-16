@@ -46,7 +46,7 @@ class Args(argparse.Namespace):
         """Where to save models, results, plots."""
         self.n_warm_iters = n_warm_iters
         self.lr_decay_iter = lr_decay_iter
-        """No of iter during which lr will decay, lr=min_lr"""
+        """No of iter during which lr will decay, after which lr=min_lr"""
         self.min_lr = min_lr
         """Minimum value of lr"""
         self.n_validation_batch = n_validation_batch   
@@ -304,7 +304,8 @@ def generate(model, idx, max_new_tokens):
         input = torch.concat((input, new_c), dim=-1)
     return input.flatten()
 
-def cv_losses_graph(train_loss: Tensor, val_loss: Tensor, val_int: str, path: str = None, save: bool = False, name: str = None):
+def cv_losses_graph(train_loss: Tensor, val_loss: Tensor, val_int: str, path: str = None, 
+                    save: bool = False, name: str = None, args: argparse.Namespace = None):
     """
     Plot cross-validation train/validation losses w.r.t batch index.
     Plots variance areas over folds. 
@@ -320,9 +321,10 @@ def cv_losses_graph(train_loss: Tensor, val_loss: Tensor, val_int: str, path: st
         train_mean + torch.std(train_loss, dim=0),
         alpha=0.3, label='Training Variance')
     
-    plt.plot(torch.arange(1, val_mean.size(0) + 1) * val_int, val_mean, label='Validation_mean')
+    plt.plot(torch.arange(0, val_mean.size(0)) * val_int, val_mean, label='Validation_mean')
+    
     plt.fill_between(
-        torch.arange(1, val_mean.size(0) + 1) * val_int, 
+        torch.arange(0, val_mean.size(0)) * val_int, 
         val_mean - torch.std(val_loss, dim=0),
         val_mean + torch.std(val_loss, dim=0),
         alpha=0.3, label='Validation Deviation')
@@ -330,14 +332,16 @@ def cv_losses_graph(train_loss: Tensor, val_loss: Tensor, val_int: str, path: st
     plt.xlabel('Batch idx')
     plt.ylabel('Cross-Entropy Loss')
     plt.title('Training and Validation Loss w.r.t. Batch Index.')
-    plt.legend()
+    plt.scatter([], [], color="w", alpha=0, label=stringify_hyparams(args))
+    plt.legend(loc = 'upper right')
     if save: plt.savefig(path+name)
     plt.show()
 
-def perplexity_graph(val_loss: Tensor, train_loss: Tensor, val_int: int, path: str = None, save: bool = False):
+def perplexity_graph(train_loss: Tensor, val_loss: Tensor, val_int: int, path: str = None, 
+                     save: bool = False, name: str = None, args: argparse.Namespace = None):
     """
     Plot cross-validation train/validation perplexities w.r.t batch index.
-    Plots variance areas over folds.
+    Plots variance areas over folds. Path has to finish by '/' !
     """
     plt.figure(figsize=(12, 8))
     plt.grid(True)
@@ -353,9 +357,9 @@ def perplexity_graph(val_loss: Tensor, train_loss: Tensor, val_int: int, path: s
         train_perplex_mean + torch.std(train_perplex, dim=0),
         alpha=0.3, label='Training Variance')
     
-    plt.plot(torch.arange(1, val_perplex_mean.size(0) + 1) * val_int, val_perplex_mean, label='Validation Mean')
+    plt.plot(torch.arange(0, val_perplex_mean.size(0)) * val_int, val_perplex_mean, label='Validation Mean')
     plt.fill_between(
-        torch.arange(1, val_perplex_mean.size(0) + 1) * val_int, 
+        torch.arange(0, val_perplex_mean.size(0)) * val_int, 
         val_perplex_mean - torch.std(val_perplex, dim=0),
         val_perplex_mean + torch.std(val_perplex, dim=0),
         alpha=0.3, label='Validation Deviation')
@@ -363,6 +367,33 @@ def perplexity_graph(val_loss: Tensor, train_loss: Tensor, val_int: int, path: s
     plt.xlabel('Batch idx')
     plt.ylabel('Perplexity')
     plt.title('Training and Validation Perplexity w.r.t. Batch Index.')
+    plt.scatter([], [], color="w", alpha=0, label=stringify_hyparams(args))
+    
     plt.legend()
-    if save: plt.savefig(path)
+    if save: plt.savefig(path+name)
     plt.show()
+
+
+def stringify_hyparams(namespace) -> str:
+    hyperparams = {
+        'batch_size': 'B', 'n_tokens': 'N', 'n_layers': 'L', 'n_heads': 'h', 'd_model': 'd', 'lr' : 'lr', 
+        'use_lr_decay': 'decay', 'decay_iters' : 'decay_iters', 'dataset_path' : 'data', 'max_iter' :' max_iter', 
+        'betas' : 'betas', 'n_warm_iters' : 'warmup', 'min_lr' : 'min_lr', 'name' : 'name', 'k_fold' : 'k_fold'
+    }
+    
+    res = "("
+    for param in namespace:
+        if param in hyperparams: 
+            if param == 'dataset_path':
+                file = namespace[param].split('/')[-1]
+                res += f"{hyperparams[param]}={file}, "
+            else:
+                res += f"{hyperparams[param]}={namespace[param]}, "
+    res = res.rstrip(', ')
+    res = res.split(', ')
+    res.insert(6, '\n')
+    res.insert(9, '\n')
+    res.insert(14, '\n')
+    res = ', '.join(res)
+    res += ")"
+    return res
