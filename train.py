@@ -73,6 +73,9 @@ class Training:
         """Matrix (k-fold x n°steps) of ce_loss at every grad update of all folds on train"""
         self.val_loss = torch.stack(kfolds_val_losses)
         """Matrix (k-fold x n°steps) of ce_loss at every grad update of all folds on validation."""
+        if not os.path.isdir(f"./runs/{self.args.name}"):   # if no checkpoints were saved
+            os.makedirs(f"./runs/{self.args.name}")
+
         torch.save(
             {'k_fold_train_loss': self.train_loss, 'k_fold_valid_loss': self.val_loss, 'params': vars(self.args)}, 
             f"./runs/{self.args.name}/total_cross_val_metrics.pt"
