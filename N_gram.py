@@ -2,307 +2,184 @@ import re
 import math
 import random
 import numpy as np
+from utils import CharDataSet
 import matplotlib.pyplot as plt
 
+'''
+N_tokens influences the way the fold are separeted. Initialize N_tokens similarly to the transformer model to obtain the same folds.
+The variable N is the order of the N_gram : 2 or 3
+'''
 
-class BigramLanguageModel:
-    def __init__(self, dataset):
-        self.dataset = dataset
-        self.CharDataSet()
-        
-    def CharDataSet(self):
-        self.data = self.load_data(self.dataset)
-        self.characters = list(self.data) # split text to char list
-        self.nb_characters = len(self.characters)
-        self.train_characters = self.characters[:int(0.9*self.nb_characters)]
-        self.validation_characters = self.characters[int(0.9*self.nb_characters):]
+class N_gram:
+    def __init__(self, N, N_tokens, dataset_path):
+        self.dataset_path = dataset_path
+        self.N_tokens = N_tokens
+        self.N = N
         self.epsilon = 1e-10 # probabilité pour les caractère jamais vu
-        self.bgrams = {}
-        
-    def get_vocab(self):
-        return set(self.characters)
     
-    def cross_validation(self, k_folds = 10):
-        # Evaluation params
-        loss_train_list = []
-        perplexity_train_list = []
-        loss_validation_list = []
-        perplexity_validation_list = []
+    def train_model(self, fold, k_fold) -> [float, float]: # returns perplexity_train, perplexity_validation
+        tokenized_data_train = CharDataSet(self.N_tokens, fold, k_fold, self.dataset_path, is_training=True)
+        tokenized_data_train = tokenized_data_train.train_chunks
+        tokenized_data_validation = CharDataSet(self.N_tokens, fold, k_fold, self.dataset_path, is_training=False)
+        tokenized_data_validation = tokenized_data_validation.validation_chunks
+        self.ngrams = {}
+        if self.N == 2 : #Bigram
+            for i in range(len(tokenized_data_train)-1):
+                w1 = tokenized_data_train[i].item()
+                w2 = tokenized_data_train[i+1].item()
+                if not w1 in self.ngrams:
+                    self.ngrams[w1] = {}
+                if not w2 in self.ngrams[w1]:
+                    self.ngrams[w1][w2] = 1
+                else:
+                    self.ngrams[w1][w2] += 1
         
-        fold_size = int(self.nb_characters / k_folds)
-        for i in range(k_folds):
-            validation_stard_index = i * fold_size
-            validation_end_index = (i + 1) * fold_size
-            # Border condition
-            if((i+1) == k_folds ):
-                validation_end_index = len(self.characters)-1 # final index of dataset
-            self.train_characters = self.characters[0:validation_end_index] + self.characters[validation_end_index:]
-            self.validation_characters = self.characters[validation_stard_index:validation_end_index]
-            print("Validation indices : ", validation_stard_index, " to ", validation_end_index)
-            print("train indices : 0 to ", validation_stard_index, " and ", validation_end_index, " to ", len(self.characters)-1)
-            self.train()
-            train_results = self.evaluate_train()
-            validation_results = self.evaluate_validation()
-            loss_train_list.append(train_results[0])
-            perplexity_train_list.append(train_results[1])
-            loss_validation_list.append(validation_results[0])
-            perplexity_validation_list.append(validation_results[1])
-        #print(loss_train_list)
-        #print(perplexity_train_list)
-        #print(loss_validation_list)
-        #print(perplexity_validation_list)
-        
-        # Compute mean and var for train
-        loss_train_mean = np.mean(np.array(loss_train_list))
-        loss_train_var = np.var(np.array(loss_train_list))
-        perplexity_train_mean = np.mean(np.array(perplexity_train_list))
-        perplexity_train_var = np.var(np.array(perplexity_train_list))
-        
-        # Compute mean and var for validation
-        loss_validation_mean = np.mean(np.array(loss_validation_list))
-        loss_validation_var = np.var(np.array(loss_validation_list))
-        perplexity_validation_mean = np.mean(np.array(perplexity_validation_list))
-        perplexity_validation_var = np.var(np.array(perplexity_validation_list))
-        
-        return loss_train_mean, loss_train_var, perplexity_train_mean, perplexity_train_var, loss_validation_mean, loss_validation_var, perplexity_validation_mean, perplexity_validation_var
+            for c in self.ngrams: # go through keys
+                self.ngrams[c] = dict(sorted(self.ngrams[c].items(), key=lambda item: -item[1])) # sort from most frequent
+                total = sum(self.ngrams[c].values()) # sum all the count
+                self.ngrams[c] = dict([(k, self.ngrams[c][k]/total) for k in self.ngrams[c]]) # compute relative frequency
+        if self.N == 3:
+            for i in range(len(tokenized_data_train)-2):
+                w1 = tokenized_data_train[i].item()
+                w2 = tokenized_data_train[i+1].item()
+                w3 = tokenized_data_train[i+2].item()
 
-    def train(self):
-        self.bgrams = {}
-        for i in range(len(self.train_characters)-1):
-            w1 = self.train_characters[i]
-            w2 = self.train_characters[i+1]
-            if not w1 in self.bgrams:
-                self.bgrams[w1] = {}
-            if not w2 in self.bgrams[w1]:
-                self.bgrams[w1][w2] = 1
-            else:
-                self.bgrams[w1][w2] += 1
+                # Créez les dictionnaires nécessaires pour stocker les trigrammes
+                if w1 not in self.ngrams:
+                    self.ngrams[w1] = {}
+                if w2 not in self.ngrams[w1]:
+                    self.ngrams[w1][w2] = {}
+                if w3 not in self.ngrams[w1][w2]:
+                    self.ngrams[w1][w2][w3] = 1
+                else:
+                    self.ngrams[w1][w2][w3] += 1
+            
+            # Traitez chaque niveau de la hiérarchie des dictionnaires
+            for c1 in self.ngrams:
+                for c2 in self.ngrams[c1]:
+                    self.ngrams[c1][c2] = dict(sorted(self.ngrams[c1][c2].items(), key=lambda item: -item[1])) # sort from most frequent
+                    total = sum(self.ngrams[c1][c2].values()) # sum all the count
+                    self.ngrams[c1][c2] = dict([(k, self.ngrams[c1][c2][k]/total) for k in self.ngrams[c1][c2]]) # compute relative frequency
+        # Evaluate model
+        perplexity_train = self.evaluate(tokenized_data_train) # eval on training dataset
+        perplexity_validation = self.evaluate(tokenized_data_validation) #eval on validation dataset
+        return perplexity_train, perplexity_validation
+            
+            
+    def evaluate(self, tokenized_data) -> float: # training perplexity
+        perplexity = 1
+        if self.N == 2:
+            total_pairs = len(tokenized_data) - 1
+            for i in range(total_pairs):
+                current_word = tokenized_data[i].item()
+                next_word = tokenized_data[i + 1].item()
+                # Calculer la probabilité prédite P(w_{i+1} | w_i)
+                try:
+                    P_wi_plus_1_wi = self.ngrams[current_word][next_word]
+                except: # caractère pas présent dans les données de training
+                    P_wi_plus_1_wi = self.epsilon   
+                # Calculer la perplexité pour cette paire de mots
+                perplexity *= math.pow(1/P_wi_plus_1_wi,1/total_pairs)
+
+        if self.N == 3:
+            total_triples = len(tokenized_data) - 2
+            
+            for i in range(total_triples):
+                current_word = tokenized_data[i].item()
+                next_word = tokenized_data[i + 1].item()
+                next_next_word = tokenized_data[i + 2].item()
+                # Calculer la probabilité prédite P(w_{i+2} | w_{i+1}, w_i)
+                try:
+                    P_wi_plus_2_wi_plus_1_wi = self.ngrams[current_word][next_word][next_next_word]
+                except: # suite de caractères pas présent dans les données de training
+                    P_wi_plus_2_wi_plus_1_wi = self.epsilon
+                
+                # Calculer la log loss pour cette paire de mots
+                perplexity *= math.pow(1/P_wi_plus_2_wi_plus_1_wi,1/total_triples)
+        return perplexity
+        
+    def next_number(self, n1, n2 = 0): # returns next number generated
+        if self.N == 2:
+            vars = self.ngrams[n1]
+            return random.choices(list(vars.keys()), weights=vars.values())[0]
+        if self.N == 3:
+            vars = self.ngrams[n1][n2]
+            return random.choices(list(vars.keys()), weights=vars.values())[0]
+
+    def generate_numbers(self, generation_size, start_nb_1, start_nb_2 = 0):
+        if self.N == 2:
+            nb_list = [start_nb_1]
+            n1 = start_nb_1
+            for i in range(generation_size):
+                n2 = self.next_number(n1)
+                nb_list.append(n2)
+                n1 = n2
+            return nb_list
+        if self.N == 3:
+            nb_list = [start_nb_1, start_nb_2]
+            n1 = start_nb_1
+            n2 = start_nb_2
+            for i in range(generation_size):
+                n3 = self.next_number(n1,n2)
+                nb_list.append(n3)
+                n1 = n2
+                n2 = n3
+            return nb_list
+
+
+if __name__ == "__main__":
     
-        for c in self.bgrams: # go through keys
-            self.bgrams[c] = dict(sorted(self.bgrams[c].items(), key=lambda item: -item[1])) # sort from most frequent
-            total = sum(self.bgrams[c].values()) # sum all the count
-            self.bgrams[c] = dict([(k, self.bgrams[c][k]/total) for k in self.bgrams[c]]) # compute relative frequency
-            
-    def evaluate_train(self) -> [float, float]: # loss, perplexity
-        # Training evlauation
-        total_loss = 0
-        total_pairs = len(self.train_characters) - 1
-        
-        for i in range(total_pairs):
-            current_word = self.train_characters[i]
-            next_word = self.train_characters[i + 1]
-            # Calculer la probabilité prédite P(w_{i+1} | w_i)
-            try:
-                P_wi_plus_1_wi = self.bgrams[current_word][next_word]
-            except: # caractère pas présent dans les données de training
-                P_wi_plus_1_wi = self.epsilon
-            
-            # Calculer la log loss pour cette paire de mots
-            loss = -math.log(P_wi_plus_1_wi)
-            total_loss += loss
-        
-        # Calculer la loss 
-        loss = total_loss/len(self.train_characters)
-        # Calculer la perplexité
-        perplexity = math.pow(2,loss)
-        return loss, perplexity
+    # Init
+    dataset = "./datasets/shakespear_corpus.txt"
+    N_tokens = 64 # required to fold the dataset...
+    bigram_model = N_gram(2,N_tokens,dataset)
+    trigram_model = N_gram(3,N_tokens,dataset)
     
-    def evaluate_validation(self) -> [float, float]: # loss, perplexity
-        # Validation evaluation
-        total_loss = 0
-        total_pairs = len(self.validation_characters) - 1
+    # Single training 
+    b_perplexity_train, b_perplexity_validation = bigram_model.train_model(1,10)
+    t_perplexity_train, t_perplexity_validation = trigram_model.train_model(1,10)
         
-        for i in range(total_pairs):
-            current_word = self.validation_characters[i]
-            next_word = self.validation_characters[i + 1]
-            # Calculer la probabilité prédite P(w_{i+1} | w_i)
-            try:
-                P_wi_plus_1_wi = self.bgrams[current_word][next_word]
-            except: # caractère pas présent dans les données de training
-                P_wi_plus_1_wi = self.epsilon
-            
-            # Calculer la log loss pour cette paire de mots
-            loss = -math.log(P_wi_plus_1_wi)
-            total_loss += loss
+    '''
+    # Cross validation
+    k_fold = 10
+    b_perplexity_train_list = []
+    b_perplexity_validation_list = []
+    t_perplexity_train_list = []
+    t_perplexity_validation_list = []
+    for i in range(k_fold):
+        b_perplexity_train, b_perplexity_validation = bigram_model.train_model(i,10)
+        t_perplexity_train, t_perplexity_validation = trigram_model.train_model(i,10)
+        b_perplexity_train_list.append(b_perplexity_train)
+        b_perplexity_validation_list.append(b_perplexity_validation)
+        t_perplexity_train_list.append(t_perplexity_train)
+        t_perplexity_validation_list.append(t_perplexity_validation)
         
-        # Calculer la loss 
-        loss = total_loss/len(self.validation_characters)
-        # Calculer la perplexité
-        perplexity = math.pow(2,loss)
-        return loss, perplexity
-        
-
-    def next_char(self, char):
-        vars = self.bgrams[char]  
-        return random.choices(list(vars.keys()), weights=vars.values())[0]
-
-    def generate_text(self, generation_size, start_char_1):
-        chars = start_char_1
-        c1 = start_char_1
-        for i in range(generation_size):
-            c2 = self.next_char(c1)
-            chars += c2
-            c1 = c2
-        return chars
-
-    def load_data(self, filename) -> str:
-        with open(filename, 'r') as file:
-            data = file.read() # read data
-        return data
+    print(b_perplexity_train_list)
+    print(b_perplexity_validation_list)
+    print(t_perplexity_train_list)
+    print(t_perplexity_validation_list)
+    '''
     
-class TrigramLanguageModel:
-    def __init__(self, dataset):
-        self.dataset = dataset
-        self.CharDataSet()
-        
-    def CharDataSet(self):
-        self.data = self.load_data(self.dataset)
-        self.characters = list(self.data) # split text to char list
-        self.nb_characters = len(self.characters)
-        self.train_characters = self.characters[:int(0.9*self.nb_characters)]
-        self.validation_characters = self.characters[int(0.9*self.nb_characters):]
-        self.epsilon = 1e-10 # probabilité pour les caractère jamais vu
-        self.tgrams = {}
-        
-    def get_vocab(self):
-        return set(self.characters)
+    # Generate text
+    start_char_1 = 44 # start for bigram
+    start_char_2 = 52 # start for trigram
+
+    generation_size = 300
     
-    def cross_validation(self, k_folds = 10):
-        # Evaluation params
-        loss_train_list = []
-        perplexity_train_list = []
-        loss_validation_list = []
-        perplexity_validation_list = []
-        
-        fold_size = int(self.nb_characters / k_folds)
-        for i in range(k_folds):
-            validation_stard_index = i * fold_size
-            validation_end_index = (i + 1) * fold_size
-            # Border condition
-            if((i+1) == k_folds ):
-                validation_end_index = len(self.characters)-1 # final index of dataset
-            self.train_characters = self.characters[0:validation_end_index] + self.characters[validation_end_index:]
-            self.validation_characters = self.characters[validation_stard_index:validation_end_index]
-            print("Validation indices : ", validation_stard_index, " to ", validation_end_index)
-            print("train indices : 0 to ", validation_stard_index, " and ", validation_end_index, " to ", len(self.characters)-1)
-            self.train()
-            train_results = self.evaluate_train()
-            validation_results = self.evaluate_validation()
-            loss_train_list.append(train_results[0])
-            perplexity_train_list.append(train_results[1])
-            loss_validation_list.append(validation_results[0])
-            perplexity_validation_list.append(validation_results[1])
-        #print(loss_train_list)
-        #print(perplexity_train_list)
-        #print(loss_validation_list)
-        #print(perplexity_validation_list)
-        
-        # Compute mean and var for train
-        loss_train_mean = np.mean(np.array(loss_train_list))
-        loss_train_var = np.var(np.array(loss_train_list))
-        perplexity_train_mean = np.mean(np.array(perplexity_train_list))
-        perplexity_train_var = np.var(np.array(perplexity_train_list))
-        
-        # Compute mean and var for validation
-        loss_validation_mean = np.mean(np.array(loss_validation_list))
-        loss_validation_var = np.var(np.array(loss_validation_list))
-        perplexity_validation_mean = np.mean(np.array(perplexity_validation_list))
-        perplexity_validation_var = np.var(np.array(perplexity_validation_list))
-        
-        return loss_train_mean, loss_train_var, perplexity_train_mean, perplexity_train_var, loss_validation_mean, loss_validation_var, perplexity_validation_mean, perplexity_validation_var
-            
-    def train(self):
-        self.tgrams = {}
-        for i in range(len(self.train_characters)-2): #!!!!
-            w1 = self.train_characters[i]
-            w2 = self.train_characters[i+1]
-            w3 = self.train_characters[i+2]
-
-            # Créez les dictionnaires nécessaires pour stocker les trigrammes
-            if w1 not in self.tgrams:
-                self.tgrams[w1] = {}
-            if w2 not in self.tgrams[w1]:
-                self.tgrams[w1][w2] = {}
-            if w3 not in self.tgrams[w1][w2]:
-                self.tgrams[w1][w2][w3] = 1
-            else:
-                self.tgrams[w1][w2][w3] += 1
-        
-        # Traitez chaque niveau de la hiérarchie des dictionnaires
-        for c1 in self.tgrams:
-            for c2 in self.tgrams[c1]:
-                self.tgrams[c1][c2] = dict(sorted(self.tgrams[c1][c2].items(), key=lambda item: -item[1]))
-                total = sum(self.tgrams[c1][c2].values())
-                self.tgrams[c1][c2] = dict([(k, self.tgrams[c1][c2][k]/total) for k in self.tgrams[c1][c2]])
-
-            
-    def evaluate_train(self) -> [float, float]: # loss, perplexity
-        # Training evlauation
-        total_loss = 0
-        total_triples = len(self.train_characters) - 2
-        
-        for i in range(total_triples):
-            current_word = self.train_characters[i]
-            next_word = self.train_characters[i + 1]
-            next_next_word = self.train_characters[i + 2]
-            # Calculer la probabilité prédite P(w_{i+2} | w_{i+1}, w_i)
-            try:
-                P_wi_plus_2_wi_plus_1_wi = self.tgrams[current_word][next_word][next_next_word]
-            except: # suite de caractères pas présent dans les données de training
-                P_wi_plus_2_wi_plus_1_wi = self.epsilon
-            
-            # Calculer la log loss pour cette paire de mots
-            loss = -math.log(P_wi_plus_2_wi_plus_1_wi)
-            total_loss += loss
-        
-        # Calculer la loss 
-        loss = total_loss/len(self.train_characters)
-        # Calculer la perplexité
-        perplexity = math.pow(2,loss)
-        return loss, perplexity
+    generated_numbers_bigram = bigram_model.generate_numbers(generation_size, start_char_1)
     
-    def evaluate_validation(self) -> [float, float]: # loss, perplexity
-        # Validation evaluation
-        total_loss = 0
-        total_triples = len(self.validation_characters) - 2
-        
-        for i in range(total_triples):
-            current_word = self.validation_characters[i]
-            next_word = self.validation_characters[i + 1]
-            next_next_word = self.validation_characters[i + 2]
-            # Calculer la probabilité prédite P(w_{i+2} | w_{i+1}, w_i)
-            try:
-                P_wi_plus_2_wi_plus_1_wi = self.tgrams[current_word][next_word][next_next_word]
-            except: # suite de caractères pas présent dans les données de training
-                P_wi_plus_2_wi_plus_1_wi = self.epsilon
-            
-            # Calculer la log loss pour cette paire de mots
-            loss = -math.log(P_wi_plus_2_wi_plus_1_wi)
-            total_loss += loss
-        
-        # Calculer la loss 
-        loss = total_loss/len(self.validation_characters)
-        # Calculer la perplexité
-        perplexity = math.pow(2,loss)
-        return loss, perplexity
-        
+    generated_numbers_trigram = trigram_model.generate_numbers(generation_size, start_char_1,start_char_2)
+    
+    #! Not working
+    
+    generated_text_bigram = ""
+    generated_text_trigram = ""
 
-    def next_char(self, c1, c2):
-        vars = self.tgrams[c1][c2]  
-        return random.choices(list(vars.keys()), weights=vars.values())[0]
+    generated_text_bigram = [chr(i) for i in generated_numbers_bigram]
 
-    def generate_text(self, generation_size, start_char_1, start_char_2):
-        chars = start_char_1 + start_char_2
-        c1 = start_char_1
-        c2 = start_char_2
-        for i in range(generation_size):
-            c3 = self.next_char(c1,c2)
-            chars += c3
-            c1 = c2
-            c2 = c3
-        return chars
-
-    def load_data(self, filename) -> str:
-        with open(filename, 'r') as file:
-            data = file.read() # read data
-        return data
+    generated_text_trigram = [chr(i) for i in generated_numbers_trigram]
+    
+    print(generated_text_bigram)
+    print()
+    print(generated_text_trigram)
+    
