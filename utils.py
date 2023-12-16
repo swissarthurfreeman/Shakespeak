@@ -297,7 +297,7 @@ def generate(model, idx, max_new_tokens):
     for k in range(max_new_tokens):
         logits = model(input)
         char_id = torch.distributions.categorical.Categorical(
-            logits=logits[0, -1, :]
+            logits=logits[0, -1, :]  # let Categorical deal with the logits
         ).sample()
 
         new_c = char_id.reshape(shape=(1, 1))

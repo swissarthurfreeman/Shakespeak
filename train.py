@@ -67,8 +67,6 @@ class Training:
             kfolds_train_losses.append(train_loss)
             kfolds_val_losses.append(val_loss)
         
-        print(len(kfolds_train_losses))
-        print(len(kfolds_train_losses[0]), len(kfolds_train_losses[4]))
         self.train_loss = torch.stack(kfolds_train_losses)
         """Matrix (k-fold x n°steps) of ce_loss at every grad update of all folds on train"""
         self.val_loss = torch.stack(kfolds_val_losses)
