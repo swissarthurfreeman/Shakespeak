@@ -14,16 +14,16 @@ class N_gram:
     def __init__(self, N, N_tokens, dataset_path):
         self.dataset_path = dataset_path
         self.N_tokens = N_tokens
-        self.N = N
-        self.epsilon = 1e-10 # probabilité pour les caractère jamais vu
+        self.N = N # order of the N_gram model
+        self.epsilon = 1e-10 # probability for unseen characters
     
     def train_model(self, fold, k_fold) -> [float, float]: # returns perplexity_train, perplexity_validation
         tokenized_data_train = CharDataSet(self.N_tokens, fold, k_fold, self.dataset_path, is_training=True)
-        tokenized_data_train = tokenized_data_train.train_chunks
+        tokenized_data_train = tokenized_data_train.train_chunks # get the tokens
         tokenized_data_validation = CharDataSet(self.N_tokens, fold, k_fold, self.dataset_path, is_training=False)
-        tokenized_data_validation = tokenized_data_validation.validation_chunks
-        self.ngrams = {}
-        if self.N == 2 : #Bigram
+        tokenized_data_validation = tokenized_data_validation.validation_chunks # get the tokens
+        self.ngrams = {} # dict of word frequencies
+        if self.N == 2 : # Bigram
             for i in range(len(tokenized_data_train)-1):
                 w1 = tokenized_data_train[i].item()
                 w2 = tokenized_data_train[i+1].item()
@@ -32,7 +32,7 @@ class N_gram:
                 if not w2 in self.ngrams[w1]:
                     self.ngrams[w1][w2] = 1
                 else:
-                    self.ngrams[w1][w2] += 1
+                    self.ngrams[w1][w2] += 1 # increment count
         
             for c in self.ngrams: # go through keys
                 self.ngrams[c] = dict(sorted(self.ngrams[c].items(), key=lambda item: -item[1])) # sort from most frequent
@@ -52,7 +52,7 @@ class N_gram:
                 if w3 not in self.ngrams[w1][w2]:
                     self.ngrams[w1][w2][w3] = 1
                 else:
-                    self.ngrams[w1][w2][w3] += 1
+                    self.ngrams[w1][w2][w3] += 1 # increment count
             
             # Traitez chaque niveau de la hiérarchie des dictionnaires
             for c1 in self.ngrams:
@@ -60,6 +60,7 @@ class N_gram:
                     self.ngrams[c1][c2] = dict(sorted(self.ngrams[c1][c2].items(), key=lambda item: -item[1])) # sort from most frequent
                     total = sum(self.ngrams[c1][c2].values()) # sum all the count
                     self.ngrams[c1][c2] = dict([(k, self.ngrams[c1][c2][k]/total) for k in self.ngrams[c1][c2]]) # compute relative frequency
+                    
         # Evaluate model
         perplexity_train = self.evaluate(tokenized_data_train) # eval on training dataset
         perplexity_validation = self.evaluate(tokenized_data_validation) #eval on validation dataset
@@ -67,7 +68,7 @@ class N_gram:
             
             
     def evaluate(self, tokenized_data) -> float: # training perplexity
-        perplexity = 1
+        perplexity = 1 # neutral element for multiplication
         if self.N == 2:
             total_pairs = len(tokenized_data) - 1
             for i in range(total_pairs):
@@ -83,7 +84,6 @@ class N_gram:
 
         if self.N == 3:
             total_triples = len(tokenized_data) - 2
-            
             for i in range(total_triples):
                 current_word = tokenized_data[i].item()
                 next_word = tokenized_data[i + 1].item()
@@ -99,6 +99,10 @@ class N_gram:
         return perplexity
         
     def next_number(self, n1, n2 = 0): # returns next number generated
+        '''
+        Picks randomly the next number depending on the probability weights.
+        Therefore the model does not just pick the most probable number for generation each time.
+        '''
         if self.N == 2:
             vars = self.ngrams[n1]
             return random.choices(list(vars.keys()), weights=vars.values())[0]
@@ -106,12 +110,15 @@ class N_gram:
             vars = self.ngrams[n1][n2]
             return random.choices(list(vars.keys()), weights=vars.values())[0]
 
-    def generate_numbers(self, generation_size, start_nb_1, start_nb_2 = 0):
+    def generate_numbers(self, generation_size, start_nb_1, start_nb_2 = 0) -> list[int]:
+        '''
+        Function that generates a list of int representing the characters.
+        '''
         if self.N == 2:
             nb_list = [start_nb_1]
             n1 = start_nb_1
             for i in range(generation_size):
-                n2 = self.next_number(n1)
+                n2 = self.next_number(n1) # generate knowing n1
                 nb_list.append(n2)
                 n1 = n2
             return nb_list
@@ -120,7 +127,7 @@ class N_gram:
             n1 = start_nb_1
             n2 = start_nb_2
             for i in range(generation_size):
-                n3 = self.next_number(n1,n2)
+                n3 = self.next_number(n1,n2) # generate knowing n1 and n2
                 nb_list.append(n3)
                 n1 = n2
                 n2 = n3
@@ -160,7 +167,7 @@ if __name__ == "__main__":
     print(t_perplexity_validation_list)
     '''
     
-    # Generate text
+    # Generate numbers
     start_char_1 = 44 # start for bigram
     start_char_2 = 52 # start for trigram
 
@@ -171,6 +178,10 @@ if __name__ == "__main__":
     generated_numbers_trigram = trigram_model.generate_numbers(generation_size, start_char_1,start_char_2)
     
     #! Not working
+    
+    # Generate text
+    
+    # BUG : Comment faire pour reconvertir les nombres en caractères ? Les caractères ont été encodés par CharDataSet 
     
     generated_text_bigram = ""
     generated_text_trigram = ""
