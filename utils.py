@@ -206,7 +206,7 @@ class CharDataSet(Dataset):
 
             val_start = fold * length_test                # val_start is index of start of validation chunk, NOTE : this is not test data per say, as model
             val_end = val_start + length_test             # selection will be done on it. Test performance is done on data the model has NEVER encountered
-                                                        # and hence has NEVER influenced the model.
+                                                          # and hence has NEVER influenced the model.
             print("train indices: [%d,%d),[%d,%d), test indices: [%d,%d)" % (0, val_start, val_end, len(data_indices), val_start, val_end))   
             
             train_left_indices = list(range(val_start))
@@ -229,6 +229,7 @@ class CharDataSet(Dataset):
     def __len__(self):
         # number of encoded sentences loaded
         chunks = self.train_chunks if self.is_training else self.validation_chunks
+        print(chunks.size(0), self.N_tokens)
         return chunks.size(0) - self.N_tokens
     
     def __getitem__(self, idx) -> tuple[Tensor, Tensor]:
@@ -258,6 +259,7 @@ class CharDataSet(Dataset):
         return ''.join(chars)
 
 def load_data(path):
+    print(path)
     with open(path, 'r') as file:
         data = "".join(file.readlines())
     return data
