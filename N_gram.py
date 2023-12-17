@@ -16,12 +16,14 @@ class N_gram:
         self.N_tokens = N_tokens
         self.N = N # order of the N_gram model
         self.epsilon = 1e-10 # probability for unseen characters
+        self.decoder = {}
     
     def train_model(self, fold, k_fold) -> [float, float]: # returns perplexity_train, perplexity_validation
-        tokenized_data_train = CharDataSet(self.N_tokens, fold, k_fold, self.dataset_path, is_training=True)
-        tokenized_data_train = tokenized_data_train.train_chunks # get the tokens
-        tokenized_data_validation = CharDataSet(self.N_tokens, fold, k_fold, self.dataset_path, is_training=False)
-        tokenized_data_validation = tokenized_data_validation.validation_chunks # get the tokens
+        tokenized_data_train_obj = CharDataSet(self.N_tokens, fold, k_fold, self.dataset_path, is_training=True)
+        self.decoder = tokenized_data_train_obj.decoder # get the decoder dict to be able to convert numbers back to char
+        tokenized_data_train = tokenized_data_train_obj.train_chunks # get the tokens
+        tokenized_data_validation_obj = CharDataSet(self.N_tokens, fold, k_fold, self.dataset_path, is_training=False)
+        tokenized_data_validation = tokenized_data_validation_obj.validation_chunks # get the tokens
         self.ngrams = {} # dict of word frequencies
         if self.N == 2 : # Bigram
             for i in range(len(tokenized_data_train)-1):
@@ -186,11 +188,15 @@ if __name__ == "__main__":
     generated_text_bigram = ""
     generated_text_trigram = ""
 
-    generated_text_bigram = [chr(i) for i in generated_numbers_bigram]
+    generated_text_bigram = ''.join([bigram_model.decoder[nombre] for nombre in generated_numbers_bigram])
 
-    generated_text_trigram = [chr(i) for i in generated_numbers_trigram]
+    generated_text_trigram = ''.join([trigram_model.decoder[nombre] for nombre in generated_numbers_trigram])
     
+    print("Bigram text generation")
+    print()
     print(generated_text_bigram)
+    print()
+    print("Trigram text generation")
     print()
     print(generated_text_trigram)
     
