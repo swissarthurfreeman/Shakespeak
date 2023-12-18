@@ -2,6 +2,7 @@ import os
 import torch
 import argparse
 import numpy as np
+from model import GPT
 from torch import Tensor
 import matplotlib.pyplot as plt
 from torch.utils.data import Dataset
@@ -160,7 +161,6 @@ class Args(argparse.Namespace):
         
         return parser.parse_args()     # this will contain all Args type values
 
-
 class CharDataSet(Dataset):
     """
     Helper class to emits batches of characters. Implements an a __getitem__() method, which 
@@ -207,7 +207,7 @@ class CharDataSet(Dataset):
             val_start = fold * length_test                # val_start is index of start of validation chunk, NOTE : this is not test data per say, as model
             val_end = val_start + length_test             # selection will be done on it. Test performance is done on data the model has NEVER encountered
                                                           # and hence has NEVER influenced the model.
-            print("train indices: [%d,%d),[%d,%d), test indices: [%d,%d)" % (0, val_start, val_end, len(data_indices), val_start, val_end))   
+            #print("train indices: [%d,%d),[%d,%d), test indices: [%d,%d)" % (0, val_start, val_end, len(data_indices), val_start, val_end))   
             
             train_left_indices = list(range(val_start))
             train_right_indices = list(range(val_end, len(data_indices)))
@@ -215,12 +215,12 @@ class CharDataSet(Dataset):
             train_indices = train_left_indices + train_right_indices
             val_indices = list(range(val_start, val_end))
             
-            self.train_chunks = data_indices[train_indices]
-            self.validation_chunks = data_indices[val_indices]  
+            self.train_idx = data_indices[train_indices]
+            self.valid_idx = data_indices[val_indices]  
         else:
             n = len(data_indices)
-            self.train_chunks = data_indices[:int(n*0.9)]
-            self.validation_chunks = data_indices[int(n*0.9):]
+            self.train_idx = data_indices[:int(n*0.9)]
+            self.valid_idx = data_indices[int(n*0.9):]
 
                                
     def get_vocab_size(self):
@@ -228,8 +228,7 @@ class CharDataSet(Dataset):
 
     def __len__(self):
         # number of encoded sentences loaded
-        chunks = self.train_chunks if self.is_training else self.validation_chunks
-        print(chunks.size(0), self.N_tokens)
+        chunks = self.train_idx if self.is_training else self.valid_idx
         return chunks.size(0) - self.N_tokens
     
     def __getitem__(self, idx) -> tuple[Tensor, Tensor]:
@@ -238,7 +237,7 @@ class CharDataSet(Dataset):
         character to an integer and returns the chunk and the 
         shifted version as tensors.
         '''
-        chunks = self.train_chunks if self.is_training else self.validation_chunks
+        chunks = self.train_idx if self.is_training else self.valid_idx
         # (N_token,), (N_token,) tuple, chunks must be flattened
         return chunks[idx:idx+self.N_tokens], chunks[idx+1:idx+1+self.N_tokens]
     
@@ -253,13 +252,10 @@ class CharDataSet(Dataset):
 
     def decode(self, idx: Tensor) -> str:
         """Decode list of character token indexes as string."""
-        chars = [self.decoder[i] for i in idx.tolist(
-        )]         # why was there an if i != 0 in the list ?
-        # this made decoding of spaces impossible
+        chars = [self.decoder[i] for i in idx.tolist()]
         return ''.join(chars)
 
 def load_data(path):
-    print(path)
     with open(path, 'r') as file:
         data = "".join(file.readlines())
     return data
@@ -276,7 +272,6 @@ def encodeDataset(path):
         idx[0, i] = encoder[char]
     np.save(path, arr=idx)
 
-
 def getLoaderDataset(N, B, dataset_path, fold, k_fold, is_training=True, shuffle=True):
     tokenized_data = CharDataSet(N, fold, k_fold, dataset_path, is_training)
     data_loader = DataLoader(
@@ -287,15 +282,13 @@ def getLoaderDataset(N, B, dataset_path, fold, k_fold, is_training=True, shuffle
         num_workers=2,
         drop_last=True
     )
-
     return data_loader, tokenized_data
 
-
 @torch.no_grad()
-def generate(model, idx, max_new_tokens):
+def generate(model: GPT, tokenized_data: CharDataSet, prompt: str, max_new_tokens) -> str:
     model.eval()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    input = idx.to(device)
+    input = tokenized_data.encode(prompt).to(device)
     for k in range(max_new_tokens):
         logits = model(input)
         char_id = torch.distributions.categorical.Categorical(
@@ -304,7 +297,7 @@ def generate(model, idx, max_new_tokens):
 
         new_c = char_id.reshape(shape=(1, 1))
         input = torch.concat((input, new_c), dim=-1)
-    return input.flatten()
+    return tokenized_data.decode(input.flatten())
 
 def cv_losses_graph(train_loss: Tensor, val_loss: Tensor, val_int: str, path: str = None, 
                     save: bool = False, name: str = None, args: argparse.Namespace = None):
@@ -340,7 +333,9 @@ def cv_losses_graph(train_loss: Tensor, val_loss: Tensor, val_int: str, path: st
     plt.show()
 
 def perplexity_graph(train_loss: Tensor, val_loss: Tensor, val_int: int, path: str = None, 
-                     save: bool = False, name: str = None, args: argparse.Namespace = None):
+                     save: bool = False, name: str = None, args: argparse.Namespace = None,
+                     baseline_perplexity_mean: float = 7.91, baseline_perplexity_std: float = 0.67, 
+                     baseline_name: str = 'Trigram'):
     """
     Plot cross-validation train/validation perplexities w.r.t batch index.
     Plots variance areas over folds. Path has to finish by '/' !
@@ -366,6 +361,16 @@ def perplexity_graph(train_loss: Tensor, val_loss: Tensor, val_int: int, path: s
         val_perplex_mean + torch.std(val_perplex, dim=0),
         alpha=0.3, label='Validation Deviation')
     
+    if baseline_perplexity_mean != None:
+        bperx_mean = torch.ones(size=(train_perplex_mean.size(0),)) * baseline_perplexity_mean
+        plt.plot(torch.arange(0, train_perplex_mean.size(0)), bperx_mean, label=f'{baseline_name} Validation Mean')
+        plt.fill_between(
+            torch.arange(0, train_perplex_mean.size(0)), 
+            bperx_mean - baseline_perplexity_std,
+            bperx_mean + baseline_perplexity_std,
+            alpha=0.3, label=f'{baseline_name} Validation Deviation'
+        )
+
     plt.xlabel('Batch idx')
     plt.ylabel('Perplexity')
     plt.title('Training and Validation Perplexity w.r.t. Batch Index.')
@@ -374,7 +379,6 @@ def perplexity_graph(train_loss: Tensor, val_loss: Tensor, val_int: int, path: s
     plt.legend()
     if save: plt.savefig(path+name)
     plt.show()
-
 
 def stringify_hyparams(namespace) -> str:
     hyperparams = {
@@ -399,3 +403,14 @@ def stringify_hyparams(namespace) -> str:
     res = ', '.join(res)
     res += ")"
     return res
+
+def load_model_metrics(path: str, V: int, device='cpu') -> tuple[GPT, ...]: 
+    '''V is number of tokens in dataset vocabulary.'''
+    checkpoint = torch.load(path, map_location=torch.device(device))
+    params = checkpoint['params']
+    model = GPT(
+        B=params['batch_size'], L=params['n_layers'], 
+        d=params['d_model'], d_ff=3*params['d_model'],
+        N=params['n_tokens'], h=params['n_heads'], V=V)
+    model.load_state_dict(checkpoint['model'])
+    return model, params, checkpoint['train_loss'], checkpoint['valid_loss']

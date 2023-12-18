@@ -1,14 +1,12 @@
-import math
 import os
+import math
 import torch
 import argparse
 import torch.nn as nn
 from model import GPT
-from utils import Args, generate
 from torch import Tensor
 import torch.optim as optim
-import matplotlib.pyplot as plt
-from utils import getLoaderDataset, DataLoader
+from utils import Args, generate, CharDataSet, getLoaderDataset, DataLoader
 
 
 class Training:
@@ -24,7 +22,7 @@ class Training:
         self.val_loss: Tensor = Tensor()
         """Matrix (k-fold, n_step) of ce_loss at every grad update of all folds on validation.
         Will be size (n_step,) if cross-validation is False."""
-        self.tokenized_data = None
+        self.tokenized_data: CharDataSet = None
 
     def calculate_lr(self, iteration: int) -> float:
         if iteration < self.args.n_warm_iters:
