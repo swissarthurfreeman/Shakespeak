@@ -1,11 +1,9 @@
-from numbers import Number
-import re
 import math
+import torch
 import random
-import numpy as np
 from torch import Tensor
 from utils import CharDataSet
-import matplotlib.pyplot as plt
+
 
 class N_gram:
     '''
@@ -130,7 +128,7 @@ class N_gram:
             vars = self.ngrams[n1][n2]
             return random.choices(list(vars.keys()), weights=vars.values())[0]
 
-    def generate(self, n_new_tokens, char_idx1, char_idx2 = 0) -> list[int]:
+    def generate(self, n_new_tokens, char_idx1, char_idx2 = 0) -> Tensor:
         '''
         Function that generates a list of int representing the characters.
         '''
@@ -142,7 +140,7 @@ class N_gram:
                 n2 = self.next_number(n1) # generate knowing n1
                 gen_idx.append(n2)
                 n1 = n2
-            return gen_idx
+            return Tensor(gen_idx)
     
         if self.N == 3:
             gen_idx = [char_idx1, char_idx2]
@@ -154,41 +152,36 @@ class N_gram:
                 gen_idx.append(n3)
                 n1 = n2
                 n2 = n3
-            return gen_idx
+            return Tensor(gen_idx)
 
+
+def cross_val_ngram(N: int, k_fold: int, path: str, N_tokens: int = 128) -> tuple[float, float]:
+    """
+    Run a k_fold cross validation experiment with a N-gram model,
+    return the validation perplexity mean and standard deviation. 
+    """
+    baseline = N_gram(N, path, N_tokens)
+
+    perx_val = torch.zeros(size=(k_fold,))
+    perx_tra = torch.zeros(size=(k_fold,))
+
+    for k in range(k_fold):
+        perx_train, perx_valid = baseline.train_model(k, k_fold) # ~5 seconds per call
+        perx_val[k] = perx_valid
+        perx_tra[k] = perx_train
+
+    perx_val_std, perx_val_mean = perx_val.std(-1).item(), perx_val.mean(-1).item()
+    return perx_val_mean, perx_val_std
 
 if __name__ == "__main__":
-    
-    # Init
     dataset = "./datasets/shakespear_corpus.txt"
-    N_tokens = 64 # required to fold the dataset...
-    bigram_model = N_gram(2,N_tokens,dataset)
-    trigram_model = N_gram(3,N_tokens,dataset)
+    N_tokens = 64                                   # required to fold the dataset...
+    bigram_model = N_gram(2, dataset, N_tokens)
+    trigram_model = N_gram(3, dataset, N_tokens)
     
     # Single training 
-    b_perplexity_train, b_perplexity_validation = bigram_model.train_model(1,10)
-    t_perplexity_train, t_perplexity_validation = trigram_model.train_model(1,10)
-        
-    '''
-    # Cross validation
-    k_fold = 10
-    b_perplexity_train_list = []
-    b_perplexity_validation_list = []
-    t_perplexity_train_list = []
-    t_perplexity_validation_list = []
-    for i in range(k_fold):
-        b_perplexity_train, b_perplexity_validation = bigram_model.train_model(i,10)
-        t_perplexity_train, t_perplexity_validation = trigram_model.train_model(i,10)
-        b_perplexity_train_list.append(b_perplexity_train)
-        b_perplexity_validation_list.append(b_perplexity_validation)
-        t_perplexity_train_list.append(t_perplexity_train)
-        t_perplexity_validation_list.append(t_perplexity_validation)
-        
-    print(b_perplexity_train_list)
-    print(b_perplexity_validation_list)
-    print(t_perplexity_train_list)
-    print(t_perplexity_validation_list)
-    '''
+    b_perplexity_train, b_perplexity_validation = bigram_model.train_model(fold=1, k_fold=10)
+    t_perplexity_train, t_perplexity_validation = trigram_model.train_model(fold=1, k_fold=10)
     
     # Generate numbers
     start_char_1 = 44 # start for bigram
@@ -196,28 +189,11 @@ if __name__ == "__main__":
 
     generation_size = 300
     
-    generated_numbers_bigram = bigram_model.generate_numbers(generation_size, start_char_1)
+    bigram_text = bigram_model.train.decode(bigram_model.generate(generation_size, start_char_1))
+    trigram_text = trigram_model.train.decode(trigram_model.generate(generation_size, start_char_1,start_char_2))
     
-    generated_numbers_trigram = trigram_model.generate_numbers(generation_size, start_char_1,start_char_2)
-    
-    #! Not working
-    
-    # Generate text
-    
-    # BUG : Comment faire pour reconvertir les nombres en caractères ? Les caractères ont été encodés par CharDataSet 
-    
-    generated_text_bigram = ""
-    generated_text_trigram = ""
-
-    generated_text_bigram = ''.join([bigram_model.decoder[nombre] for nombre in generated_numbers_bigram])
-
-    generated_text_trigram = ''.join([trigram_model.decoder[nombre] for nombre in generated_numbers_trigram])
-    
-    print("Bigram text generation")
-    print()
-    print(generated_text_bigram)
-    print()
-    print("Trigram text generation")
-    print()
-    print(generated_text_trigram)
+    print("Bigram text generation \n---------------------------")
+    print(bigram_text + '\n')
+    print("Trigram text generation \n--------------------------")
+    print(trigram_text)
     

@@ -2,6 +2,7 @@ import os
 import torch
 import argparse
 import numpy as np
+from model import GPT
 from torch import Tensor
 import matplotlib.pyplot as plt
 from torch.utils.data import Dataset
@@ -160,7 +161,6 @@ class Args(argparse.Namespace):
         
         return parser.parse_args()     # this will contain all Args type values
 
-
 class CharDataSet(Dataset):
     """
     Helper class to emits batches of characters. Implements an a __getitem__() method, which 
@@ -252,9 +252,7 @@ class CharDataSet(Dataset):
 
     def decode(self, idx: Tensor) -> str:
         """Decode list of character token indexes as string."""
-        chars = [self.decoder[i] for i in idx.tolist(
-        )]         # why was there an if i != 0 in the list ?
-        # this made decoding of spaces impossible
+        chars = [self.decoder[i] for i in idx.tolist()]
         return ''.join(chars)
 
 def load_data(path):
@@ -274,7 +272,6 @@ def encodeDataset(path):
         idx[0, i] = encoder[char]
     np.save(path, arr=idx)
 
-
 def getLoaderDataset(N, B, dataset_path, fold, k_fold, is_training=True, shuffle=True):
     tokenized_data = CharDataSet(N, fold, k_fold, dataset_path, is_training)
     data_loader = DataLoader(
@@ -285,15 +282,13 @@ def getLoaderDataset(N, B, dataset_path, fold, k_fold, is_training=True, shuffle
         num_workers=2,
         drop_last=True
     )
-
     return data_loader, tokenized_data
 
-
 @torch.no_grad()
-def generate(model, idx, max_new_tokens):
+def generate(model: GPT, tokenized_data: CharDataSet, prompt: str, max_new_tokens) -> str:
     model.eval()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    input = idx.to(device)
+    input = tokenized_data.encode(prompt).to(device)
     for k in range(max_new_tokens):
         logits = model(input)
         char_id = torch.distributions.categorical.Categorical(
@@ -302,7 +297,7 @@ def generate(model, idx, max_new_tokens):
 
         new_c = char_id.reshape(shape=(1, 1))
         input = torch.concat((input, new_c), dim=-1)
-    return input.flatten()
+    return tokenized_data.decode(input.flatten())
 
 def cv_losses_graph(train_loss: Tensor, val_loss: Tensor, val_int: str, path: str = None, 
                     save: bool = False, name: str = None, args: argparse.Namespace = None):
@@ -385,7 +380,6 @@ def perplexity_graph(train_loss: Tensor, val_loss: Tensor, val_int: int, path: s
     if save: plt.savefig(path+name)
     plt.show()
 
-
 def stringify_hyparams(namespace) -> str:
     hyperparams = {
         'batch_size': 'B', 'n_tokens': 'N', 'n_layers': 'L', 'n_heads': 'h', 'd_model': 'd', 'lr' : 'lr', 
@@ -409,3 +403,14 @@ def stringify_hyparams(namespace) -> str:
     res = ', '.join(res)
     res += ")"
     return res
+
+def load_model_metrics(path: str, V: int, device='cpu') -> tuple[GPT, ...]: 
+    '''V is number of tokens in dataset vocabulary.'''
+    checkpoint = torch.load(path, map_location=torch.device(device))
+    params = checkpoint['params']
+    model = GPT(
+        B=params['batch_size'], L=params['n_layers'], 
+        d=params['d_model'], d_ff=3*params['d_model'],
+        N=params['n_tokens'], h=params['n_heads'], V=V)
+    model.load_state_dict(checkpoint['model'])
+    return model, params, checkpoint['train_loss'], checkpoint['valid_loss']
