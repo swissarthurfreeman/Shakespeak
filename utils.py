@@ -207,7 +207,7 @@ class CharDataSet(Dataset):
             val_start = fold * length_test                # val_start is index of start of validation chunk, NOTE : this is not test data per say, as model
             val_end = val_start + length_test             # selection will be done on it. Test performance is done on data the model has NEVER encountered
                                                           # and hence has NEVER influenced the model.
-            print("train indices: [%d,%d),[%d,%d), test indices: [%d,%d)" % (0, val_start, val_end, len(data_indices), val_start, val_end))   
+            #print("train indices: [%d,%d),[%d,%d), test indices: [%d,%d)" % (0, val_start, val_end, len(data_indices), val_start, val_end))   
             
             train_left_indices = list(range(val_start))
             train_right_indices = list(range(val_end, len(data_indices)))
@@ -215,12 +215,12 @@ class CharDataSet(Dataset):
             train_indices = train_left_indices + train_right_indices
             val_indices = list(range(val_start, val_end))
             
-            self.train_chunks = data_indices[train_indices]
-            self.validation_chunks = data_indices[val_indices]  
+            self.train_idx = data_indices[train_indices]
+            self.valid_idx = data_indices[val_indices]  
         else:
             n = len(data_indices)
-            self.train_chunks = data_indices[:int(n*0.9)]
-            self.validation_chunks = data_indices[int(n*0.9):]
+            self.train_idx = data_indices[:int(n*0.9)]
+            self.valid_idx = data_indices[int(n*0.9):]
 
                                
     def get_vocab_size(self):
@@ -228,8 +228,7 @@ class CharDataSet(Dataset):
 
     def __len__(self):
         # number of encoded sentences loaded
-        chunks = self.train_chunks if self.is_training else self.validation_chunks
-        print(chunks.size(0), self.N_tokens)
+        chunks = self.train_idx if self.is_training else self.valid_idx
         return chunks.size(0) - self.N_tokens
     
     def __getitem__(self, idx) -> tuple[Tensor, Tensor]:
@@ -238,7 +237,7 @@ class CharDataSet(Dataset):
         character to an integer and returns the chunk and the 
         shifted version as tensors.
         '''
-        chunks = self.train_chunks if self.is_training else self.validation_chunks
+        chunks = self.train_idx if self.is_training else self.valid_idx
         # (N_token,), (N_token,) tuple, chunks must be flattened
         return chunks[idx:idx+self.N_tokens], chunks[idx+1:idx+1+self.N_tokens]
     
@@ -259,7 +258,6 @@ class CharDataSet(Dataset):
         return ''.join(chars)
 
 def load_data(path):
-    print(path)
     with open(path, 'r') as file:
         data = "".join(file.readlines())
     return data
@@ -340,7 +338,9 @@ def cv_losses_graph(train_loss: Tensor, val_loss: Tensor, val_int: str, path: st
     plt.show()
 
 def perplexity_graph(train_loss: Tensor, val_loss: Tensor, val_int: int, path: str = None, 
-                     save: bool = False, name: str = None, args: argparse.Namespace = None):
+                     save: bool = False, name: str = None, args: argparse.Namespace = None,
+                     baseline_perplexity_mean: float = 7.91, baseline_perplexity_std: float = 0.67, 
+                     baseline_name: str = 'Trigram'):
     """
     Plot cross-validation train/validation perplexities w.r.t batch index.
     Plots variance areas over folds. Path has to finish by '/' !
@@ -366,6 +366,16 @@ def perplexity_graph(train_loss: Tensor, val_loss: Tensor, val_int: int, path: s
         val_perplex_mean + torch.std(val_perplex, dim=0),
         alpha=0.3, label='Validation Deviation')
     
+    if baseline_perplexity_mean != None:
+        bperx_mean = torch.ones(size=(train_perplex_mean.size(0),)) * baseline_perplexity_mean
+        plt.plot(torch.arange(0, train_perplex_mean.size(0)), bperx_mean, label=f'{baseline_name} Validation Mean')
+        plt.fill_between(
+            torch.arange(0, train_perplex_mean.size(0)), 
+            bperx_mean - baseline_perplexity_std,
+            bperx_mean + baseline_perplexity_std,
+            alpha=0.3, label=f'{baseline_name} Validation Deviation'
+        )
+
     plt.xlabel('Batch idx')
     plt.ylabel('Perplexity')
     plt.title('Training and Validation Perplexity w.r.t. Batch Index.')
