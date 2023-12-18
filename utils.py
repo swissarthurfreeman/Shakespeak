@@ -2,9 +2,9 @@ import os
 import torch
 import argparse
 import numpy as np
-from modules import GPT
 from torch import Tensor
 import matplotlib.pyplot as plt
+from Shakespeak.modules import GPT
 from torch.utils.data import Dataset
 from torch.utils.data.dataloader import DataLoader
 
@@ -17,7 +17,7 @@ class Args(argparse.Namespace):
     """
     def __init__(self, 
                  batch_size=10, n_tokens=64, n_layers=4, n_heads=4, 
-                 d_model=128, use_lr_decay=True, lr=1e-3, dataset_path="./datasets/shakespear_corpus.txt", 
+                 d_model=128, use_lr_decay=True, lr=1e-3, dataset_path="../datasets/shakespear_corpus.txt", 
                  max_iter=100, out_dir="./runs/", n_warm_iters=100, 
                  lr_decay_iter=5000, min_lr=1e-4, 
                  n_validation_batch=200, betas=(0.9, 0.99), 
@@ -333,7 +333,7 @@ def cv_losses_graph(train_loss: Tensor, val_loss: Tensor, val_int: str, path: st
     plt.show()
 
 def perplexity_graph(train_loss: Tensor, val_loss: Tensor, val_int: int, path: str = None, 
-                     save: bool = False, name: str = None, args: argparse.Namespace = None,
+                     save: bool = False, name: str = 'milkshake', args: argparse.Namespace = None,
                      baseline_perplexity_mean: float = 7.91, baseline_perplexity_std: float = 0.67, 
                      baseline_name: str = 'Trigram'):
     """
@@ -374,8 +374,8 @@ def perplexity_graph(train_loss: Tensor, val_loss: Tensor, val_int: int, path: s
     plt.xlabel('Batch idx')
     plt.ylabel('Perplexity')
     plt.title('Training and Validation Perplexity w.r.t. Batch Index.')
-    plt.legend()
     plt.scatter([], [], color="w", alpha=0, label=stringify_hyparams(args))
+    plt.legend()
     if save: plt.savefig(path+name)
     plt.show()
 

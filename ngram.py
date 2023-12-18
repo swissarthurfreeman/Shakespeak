@@ -2,7 +2,7 @@ import math
 import torch
 import random
 from torch import Tensor
-from utils import CharDataSet
+from Shakespeak.utils import CharDataSet
 
 
 class N_gram:

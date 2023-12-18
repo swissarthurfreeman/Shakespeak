@@ -5,6 +5,8 @@ __pycache__/
 train.txt
 train.txt.npy
 # C extensions
+long_model_**/
+long_story_**/
 *.so
 runs/*
 # Distribution / packaging

@@ -3,10 +3,10 @@ import math
 import torch
 import argparse
 import torch.nn as nn
-from modules import GPT
 from torch import Tensor
 import torch.optim as optim
-from utils import Args, generate, CharDataSet, getLoaderDataset, DataLoader
+from Shakespeak.modules import GPT
+from Shakespeak.utils import Args, generate, CharDataSet, getLoaderDataset, DataLoader
 
 
 class Training:
