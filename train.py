@@ -3,7 +3,7 @@ import math
 import torch
 import argparse
 import torch.nn as nn
-from model import GPT
+from modules import GPT
 from torch import Tensor
 import torch.optim as optim
 from utils import Args, generate, CharDataSet, getLoaderDataset, DataLoader

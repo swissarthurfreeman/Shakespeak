@@ -2,7 +2,7 @@ import os
 import torch
 import argparse
 import numpy as np
-from model import GPT
+from modules import GPT
 from torch import Tensor
 import matplotlib.pyplot as plt
 from torch.utils.data import Dataset
@@ -374,9 +374,8 @@ def perplexity_graph(train_loss: Tensor, val_loss: Tensor, val_int: int, path: s
     plt.xlabel('Batch idx')
     plt.ylabel('Perplexity')
     plt.title('Training and Validation Perplexity w.r.t. Batch Index.')
-    plt.scatter([], [], color="w", alpha=0, label=stringify_hyparams(args))
-    
     plt.legend()
+    plt.scatter([], [], color="w", alpha=0, label=stringify_hyparams(args))
     if save: plt.savefig(path+name)
     plt.show()
 
