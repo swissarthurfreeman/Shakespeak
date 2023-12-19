@@ -1,6 +1,8 @@
 # Shakespeak
 
-Tested on Ubuntu-22.04 with miniconda environment.
+Tested on Ubuntu-22.04 within [miniconda environment](https://docs.conda.io/projects/miniconda/en/latest/miniconda-install.html). 
+Use `conda create -n <environment-name> --file req.txt` at the project root directory to build the same
+miniconda environment.
 
 Toy Transformer implementation trained on character level tokens on Shakesperian and Children stories text.
 Pretrained large models and datasets are available [here](https://www.swisstransfer.com/d/d24e13a7-4939-4890-a97c-a497e9b834b3).
