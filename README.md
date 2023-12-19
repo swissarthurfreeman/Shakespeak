@@ -1,6 +1,8 @@
 # Shakespeak
 
 Toy Transformer implementation trained on character level tokens on Shakesperian and Children stories text.
+Pretrained large models and datasets are available [here](https://www.swisstransfer.com/d/d24e13a7-4939-4890-a97c-a497e9b834b3).
+Note that they need to be in `./pretrained_models/` for the jupyter notebook examples using them to work. The `train.txt` dataset is a Children's stories dataset which has to be put in `./datasets`. 
 
 ## Basic Usage
 
@@ -14,9 +16,6 @@ args.save_int = 30                              # save every 30 iterations
 args.max_iter = 100
 args.val_int = 25                               # compute validation loss every 25 grad steps
 args.save = True
-
-print("Default arguments : \n--------------------------\n", 
-      args, '\n--------------------------')
 
 train = Training(args)                          # training run takes a bag of parameters 
 default_model, def_train_loss, def_valid_loss = train.train()
