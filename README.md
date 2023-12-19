@@ -1,5 +1,7 @@
 # Shakespeak
 
+Tested on Ubuntu-22.04.
+
 Toy Transformer implementation trained on character level tokens on Shakesperian and Children stories text.
 Pretrained large models and datasets are available [here](https://www.swisstransfer.com/d/d24e13a7-4939-4890-a97c-a497e9b834b3).
 Note that they need to be in `./pretrained_models/` for the jupyter notebook examples using them to work. The `train.txt` dataset is a Children's stories dataset which has to be put in `./datasets`. 
